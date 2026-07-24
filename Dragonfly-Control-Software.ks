@@ -1,5 +1,10 @@
 // Dragonfly Control Software
 
+// Flight Parameters
+PARAMETER targetAlt IS 5000.
+PARAMETER cruiseSpeed IS 40.
+PARAMETER approachDist IS 250.
+
 @LAZYGLOBAL OFF.
 
 // PID Controllers
@@ -7,10 +12,15 @@ GLOBAL pid_alt IS PIDLOOP(0.2, 0.01, 0.1, -10, 10).
 GLOBAL pid_vs IS PIDLOOP(0.05, 0.01, 0.05, 0, 1).
 GLOBAL pid_pitch IS PIDLOOP(1.5, 0.1, 0.5, -45, 5).
 
-// Flight Control Parameters
-PARAMETER targetAlt IS 5000.
-PARAMETER cruiseSpeed IS 40.
-PARAMETER approachDist IS 250.
+// Flight Variables
+GLOBAL flightMode IS "LIFTOFF".
+GLOBAL transitionAlt IS 250.
+GLOBAL desiredVS IS 0.
+GLOBAL throttleCMD IS 0.
+GLOBAL targetPitch IS 0.
+GLOBAL forwardSpeed IS 0.
+GLOBAL dynamicHeading IS 90.
+GLOBAL targetDir IS HEADING(dynamicHeading, -targetPitch):VECTOR.
 
 CLEARSCREEN.
 PRINT "Dragonfly Control Software Initializing...".
@@ -61,15 +71,7 @@ CLEARSCREEN.
 PRINT "Target Locked: " + currentWP:NAME.
 PRINT "Activating Autopilot...".
 WAIT 5.
-
-// Flight Varibles
-GLOBAL flightMode IS "LIFTOFF".
-GLOBAL desiredVS IS 0.
-GLOBAL throttleCMD IS 0.
-GLOBAL targetPitch IS 0.
-GLOBAL forwardSpeed IS 0.
-GLOBAL dynamicHeading IS 90.
-GLOBAL targetDir IS HEADING(dynamicHeading, -targetPitch):VECTOR.
+PRINT "Liftoff."
 
 // Control Locks
 LOCK STEERING TO LOOKDIRUP(targetDir, SHIP:UP:VECTOR).
@@ -111,35 +113,29 @@ PRINT "Dragonfly waypoint reached. Systems unlocked.".
 FUNCTION Liftoff {
     SET targetPitch TO 0.
     SET throttleCMD TO 0.33.
+    SET pid_alt:SETPOINT TO targetAlt.
 
-    IF ALT:RADAR > (targetAlt - 5) {
-        PRINT "Cruising altitude reached. En route to: " + currentWP:NAME.
-        pid_alt:RESET().
-        pid_vs:RESET().
-        RETURN "CRUISE".
+    IF ALT:RADAR > transitionAlt {
+        SET flightMode TO "CRUISE".
+        PRINT "Transition to Cruise Mode. En route to: " + currentWP:NAME.
     }
-    RETURN "LIFTOFF".
 }
 
 FUNCTION Cruise {
     PARAMETER distToTarget.
 
+    SET targetPitch TO -45. // Change this number based on desired horizontal speed.
     SET pid_alt:SETPOINT TO targetAlt.
     SET desiredVS TO pid_alt:UPDATE(TIME:SECONDS, ALT:RADAR).
 
-    SET pid_pitch:SETPOINT TO cruiseSpeed.
-    SET targetPitch TO pid_pitch:UPDATE(TIME.SECONDS, forwardSpeed).
-
     IF distToTarget < approachDist {
+        SET flightMode TO "APPROACH".    
         PRINT "Approaching target (" + ROUND(distToTarget, 0) + "m away). Decelerating...".
-        RETURN "APPROACH".
     }
-    RETURN "CRUISE".
 }
 
 FUNCTION Approach {
-    SET pid_pitch:SETPOINT TO 0.
-    SET targetPitch TO pid_pitch:UPDATE(TIME:SECONDS, forwardSpeed).
+    SET targetPitch TO -15.
 
     SET pid_alt:SETPOINT TO targetAlt.
     SET desiredVS TO pid_alt:UPDATE(TIME:SECONDS, ALT:RADAR).
@@ -148,12 +144,10 @@ FUNCTION Approach {
         PRINT "Positioned over " + currentWP:NAME + ". Initiating vertical descent.".
         RETURN "LANDING".
     }
-    RETURN "APPROACH".
 }
 
 FUNCTION Landing {
-    SET pid_pitch:SETPOINT TO 0.
-    SET targetPitch TO pid_pitch:UPDATE(TIME:SECONDS, forwardSpeed).
+    SET targetPitch TO 0.
 
     IF ALT:RADAR > 50 {
         SET pid_alt:SETPOINT TO 20.
