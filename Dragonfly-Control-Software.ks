@@ -2,6 +2,11 @@
 
 @LAZYGLOBAL OFF.
 
+// PID Controllers
+GLOBAL pid_alt IS PIDLOOP(0.2, 0.01, 0.1, -10, 10).
+GLOBAL pid_vs IS PIDLOOP(0.05, 0.01, 0.05, 0, 1).
+GLOBAL pid_pitch IS PIDLOOP(1.5, 0.1, 0.5, -45, 5).
+
 // Flight Control Parameters
 PARAMETER targetAlt IS 5000.
 PARAMETER cruiseSpeed IS 40.
@@ -31,7 +36,7 @@ PRINT "        AVAILABLE WAYPOINTS        ".
 PRINT "===================================".
 LOCAL idx IS 0.
 FOR wp IN wpList {
-    PRINT "[" + idx + "]" + wp:NAME.
+    PRINT "[" + idx + "] " + wp:NAME.
     SET idx TO idx + 1.
 }
 PRINT "===================================".
@@ -57,21 +62,17 @@ PRINT "Target Locked: " + currentWP:NAME.
 PRINT "Activating Autopilot...".
 WAIT 5.
 
-// PID Controllers
-LOCAL pid_alt IS PIDLOOP(0.2, 0.01, 0.1, -10, 10).
-LOCAL pid_vs IS PIDLOOP(0.05, 0.01, 0.05, 0, 1).
-LOCAL pid_pitch IS PIDLOOP(1.5, 0.1, 0.5, -45, 5).
-
 // Flight Varibles
-LOCAL flightMode IS "LIFTOFF".
-LOCAL desiredVS IS 0.
-LOCAL throttleCMD IS 0.
-LOCAL targetPitch IS 0.
-LOCAL forwardSpeed IS 0.
-LOCAL dynamicHeading IS 90.
+GLOBAL flightMode IS "LIFTOFF".
+GLOBAL desiredVS IS 0.
+GLOBAL throttleCMD IS 0.
+GLOBAL targetPitch IS 0.
+GLOBAL forwardSpeed IS 0.
+GLOBAL dynamicHeading IS 90.
+GLOBAL targetDir IS HEADING(dynamicHeading, -targetPitch):VECTOR.
 
 // Control Locks
-LOCK STEERING TO HEADING(dynamicHeading, 90 - targetPitch).
+LOCK STEERING TO LOOKDIRUP(targetDir, SHIP:UP:VECTOR).
 LOCK THROTTLE TO throttleCMD.
 
 // Main Control Loop
@@ -80,7 +81,7 @@ UNTIL flightMode = "ARRIVED" {
     SET dynamicHeading TO targetGeo:HEADING.
     LOCAL distToTarget IS targetGeo:DISTANCE.
     
-    LOCAL facingVector IS HEADING:(dynamicHeading, 0):VECTOR.
+    LOCAL facingVector IS HEADING(dynamicHeading, 0):VECTOR.
     SET forwardSpeed TO VDOT(SHIP:VELOCITY:SURFACE, facingVector).
     
     IF flightMode = "LIFTOFF" { SET flightMode TO Liftoff(). }
@@ -89,11 +90,11 @@ UNTIL flightMode = "ARRIVED" {
     ELSE IF flightMode = "LANDING" { SET flightMode TO Landing(). }
 
     IF flightMode = "CRUISE" OR "APPROACH" OR "LANDING" {
-        pid_vs:SETPOINT TO desiredVS.
+        SET desiredVS TO pid_alt:UPDATE(TIME:SECONDS, ALT:RADAR).
+        SET pid_vs:SETPOINT TO desiredVS.
         SET throttleCMD TO pid_vs:UPDATE(TIME:SECONDS, SHIP:VERTICALSPEED).
     }
-
-    WAIT 0.1
+    WAIT 0.1.
 }
 
 // Shutdown Sequence
@@ -123,10 +124,10 @@ FUNCTION Liftoff {
 FUNCTION Cruise {
     PARAMETER distToTarget.
 
-    SET pid_alt TO targetAlt.
+    SET pid_alt:SETPOINT TO targetAlt.
     SET desiredVS TO pid_alt:UPDATE(TIME:SECONDS, ALT:RADAR).
 
-    SET pid_pitch TO cruiseSpeed.
+    SET pid_pitch:SETPOINT TO cruiseSpeed.
     SET targetPitch TO pid_pitch:UPDATE(TIME.SECONDS, forwardSpeed).
 
     IF distToTarget < approachDist {
@@ -137,10 +138,10 @@ FUNCTION Cruise {
 }
 
 FUNCTION Approach {
-    SET pid_pitch TO 0.
+    SET pid_pitch:SETPOINT TO 0.
     SET targetPitch TO pid_pitch:UPDATE(TIME:SECONDS, forwardSpeed).
 
-    SET pid_alt TO targetAlt.
+    SET pid_alt:SETPOINT TO targetAlt.
     SET desiredVS TO pid_alt:UPDATE(TIME:SECONDS, ALT:RADAR).
 
     IF forwardSpeed < 1 AND forwardSpeed > -1 {
@@ -151,11 +152,11 @@ FUNCTION Approach {
 }
 
 FUNCTION Landing {
-    pid_pitch:SETPOINT TO 0.
+    SET pid_pitch:SETPOINT TO 0.
     SET targetPitch TO pid_pitch:UPDATE(TIME:SECONDS, forwardSpeed).
 
     IF ALT:RADAR > 50 {
-        SET pid_alt TO 20.
+        SET pid_alt:SETPOINT TO 20.
         SET desiredVS TO pid_alt:UPDATE(TIME:SECONDS, ALT:RADAR).
     } ELSE IF ALT:RADAR > 10 {
         SET desiredVS TO -2.
