@@ -89,7 +89,7 @@ UNTIL flightMode = "ARRIVED" {
     ELSE IF flightMode = "APPROACH" { SET flightMode TO Approach(). }
     ELSE IF flightMode = "LANDING" { SET flightMode TO Landing(). }
 
-    IF flightMode = "CRUISE" OR "APPROACH" OR "LANDING" {
+    IF flightMode = "CRUISE" OR flightMode = "APPROACH" OR flightMode =  "LANDING" {
         SET desiredVS TO pid_alt:UPDATE(TIME:SECONDS, ALT:RADAR).
         SET pid_vs:SETPOINT TO desiredVS.
         SET throttleCMD TO pid_vs:UPDATE(TIME:SECONDS, SHIP:VERTICALSPEED).
