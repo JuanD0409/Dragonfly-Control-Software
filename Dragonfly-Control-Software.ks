@@ -1,29 +1,11 @@
 // Dragonfly Control Software
 
-// Flight Parameters
-PARAMETER targetAlt IS 5000.
-PARAMETER cruiseSpeed IS 40.
-PARAMETER approachDist IS 250.
-
-@LAZYGLOBAL OFF.
+GLOBAL flightMode IS "LIFTOFF".
 
 // PID Controllers
-GLOBAL pid_alt IS PIDLOOP(0.2, 0.01, 0.1, -10, 10).
-GLOBAL pid_vs IS PIDLOOP(0.05, 0.01, 0.05, 0, 1).
-GLOBAL pid_pitch IS PIDLOOP(1.5, 0.1, 0.5, -45, 5).
-
-// Flight Variables
-GLOBAL flightMode IS "LIFTOFF".
-GLOBAL transitionAlt IS 250.
-GLOBAL desiredVS IS 0.
-GLOBAL throttleCMD IS 0.
-GLOBAL targetPitch IS 0.
-GLOBAL forwardSpeed IS 0.
-GLOBAL dynamicHeading IS 90.
-GLOBAL targetDir IS HEADING(dynamicHeading, -targetPitch):VECTOR.
-
-CLEARSCREEN.
-PRINT "Dragonfly Control Software Initializing...".
+GLOBAL alt_pid IS PIDLOOP(0.05, 0.005, 0.1, 0, 1).
+GLOBAL vs_pid IS PIDLOOP (0.1, 0.01, 0.05, 0, 1).
+GLOBAL speed_pid IS PIDLOOP (1.5, 0.1, 0.5, 0, 45).
 
 // Waypoint Search Function
 LOCAL wpList IS LIST().
@@ -71,96 +53,101 @@ CLEARSCREEN.
 PRINT "Target Locked: " + currentWP:NAME.
 PRINT "Activating Autopilot...".
 WAIT 5.
-PRINT "Liftoff."
-
-// Control Locks
-LOCK STEERING TO LOOKDIRUP(targetDir, SHIP:UP:VECTOR).
-LOCK THROTTLE TO throttleCMD.
 
 // Main Control Loop
 UNTIL flightMode = "ARRIVED" {
-    LOCAL targetGeo IS currentWP:GEOPOSITION.
-    SET dynamicHeading TO targetGeo:HEADING.
-    LOCAL distToTarget IS targetGeo:DISTANCE.
-    
-    LOCAL facingVector IS HEADING(dynamicHeading, 0):VECTOR.
-    SET forwardSpeed TO VDOT(SHIP:VELOCITY:SURFACE, facingVector).
-    
-    IF flightMode = "LIFTOFF" { SET flightMode TO Liftoff(). }
-    ELSE IF flightMode = "CRUISE" { SET flightMode TO Cruise(distToTarget). }
-    ELSE IF flightMode = "APPROACH" { SET flightMode TO Approach(). }
-    ELSE IF flightMode = "LANDING" { SET flightMode TO Landing(). }
-
-    IF flightMode = "CRUISE" OR flightMode = "APPROACH" OR flightMode =  "LANDING" {
-        SET desiredVS TO pid_alt:UPDATE(TIME:SECONDS, ALT:RADAR).
-        SET pid_vs:SETPOINT TO desiredVS.
-        SET throttleCMD TO pid_vs:UPDATE(TIME:SECONDS, SHIP:VERTICALSPEED).
+    IF flightMode = "LIFTOFF" {
+        Liftoff().
+        SET flightMode TO "CRUISE".
+    }
+    ELSE IF flightMode = "CRUISE" {
+        Cruise().
+        SET flightMode TO "APPROACH".
+    }
+    ELSE IF flightMode = "APPROACH" {
+        Approach().
+        SET flightMode TO "LAND".
+    }
+    ELSE IF flightMode = "LAND" {
+        Land().
+        SET flightMode TO "ARRIVED".
     }
     WAIT 0.1.
 }
 
-// Shutdown Sequence
-UNLOCK STEERING.
-LOCK THROTTLE TO 0.
-SET SHIP:CONTROL:THROTTLE TO 0.
-WAIT 1.
-UNLOCK THROTTLE.
-
-PRINT "Dragonfly waypoint reached. Systems unlocked.".
-
-// Function List
-
 FUNCTION Liftoff {
-    SET targetPitch TO 0.
-    SET throttleCMD TO 0.33.
-    SET pid_alt:SETPOINT TO targetAlt.
+    PRINT "Flight Mode: Liftoff" AT (0, 10).
+    LOCK STEERING TO HEADING(currentWP:HEADING, 0).
+    LOCK THROTTLE TO 0.33
 
-    IF ALT:RADAR > transitionAlt {
-        SET flightMode TO "CRUISE".
-        PRINT "Transition to Cruise Mode. En route to: " + currentWP:NAME.
-    }
+    WAIT UNTIL ALT:RADAR >= 100.
+    SET flightMode TO "CRUISE".
+    PRINT "Transitioning to Cruise Mode." AT (0, 12).
 }
 
 FUNCTION Cruise {
-    PARAMETER distToTarget.
+    PRINT "Flight Mode: Cruise" AT (0, 10).
+    LOCAL targetHeading IS currentWP:HEADING.
 
-    SET targetPitch TO -45. // Change this number based on desired horizontal speed.
-    SET pid_alt:SETPOINT TO targetAlt.
-    SET desiredVS TO pid_alt:UPDATE(TIME:SECONDS, ALT:RADAR).
+    SET alt_pid:SETPOINT TO 5250. // Target altitude above sea level.
+    SET speed_pid TO 50. // Target forward speed in m/s.
 
-    IF distToTarget < approachDist {
-        SET flightMode TO "APPROACH".    
-        PRINT "Approaching target (" + ROUND(distToTarget, 0) + "m away). Decelerating...".
+    LOCAL current_throttle IS 1.0.
+    LOCAL current_pitch IS 0.
+
+    LOCK STEERING TO HEADING(targetHeading, currentPitch).
+    LOCK THROTTLE TO current_throttle.
+
+    UNTIL currentWP:DISTANCE <= 500 {
+        SET targetHeading TO currentWP:HEADING.
+        SET current_pitch TO -1 * speed_pid:UPDATE(TIME:SECONDS, SHIP:VELOCITY:SURFACE:MAG).
+        SET current_throttle TO alt_pid:UPDATE(TIME:SECONDS, ALTITUDE).
+        WAIT 0.1.
     }
+    PRINT "Transitioning to Approach Mode." AT (0, 12).
 }
 
 FUNCTION Approach {
-    SET targetPitch TO -15.
+    PRINT "Flight Mode: Approach" AT (0, 10).
+    LOCAL targetHeading IS currentWP:HEADING.
 
-    SET pid_alt:SETPOINT TO targetAlt.
-    SET desiredVS TO pid_alt:UPDATE(TIME:SECONDS, ALT:RADAR).
+    SET speed_pid:SETPOINT TO 0.
+    SET vs_pid:SETPOINT TO -5.
 
-    IF forwardSpeed < 1 AND forwardSpeed > -1 {
-        PRINT "Positioned over " + currentWP:NAME + ". Initiating vertical descent.".
-        RETURN "LANDING".
+    LOCAL current_throttle IS 0.25.
+    LOCAL current_pitch IS 0.
+
+    LOCK STEERING TO HEADING(targetHeading, current_pitch).
+    LOCK THROTTLE TO current_throttle.
+
+    UNTIL SHIP:VELOCITY:SURFACE:MAG < 1 {
+        SET targetHeading TO currentWP:HEADING.
+        SET current_pitch TO -1 * speed_pid:UPDATE(TIME:SECONDS, SHIP:VELOCITY:SURFACE:MAG).
+        SET current_throttle TO vs_pid:UPDATE(TIME:SECONDS, SHIP:VERTICALSPEED).
+        WAIT 0.1.
     }
+    PRINT "Transitioning to Landing." AT (0, 12).
 }
 
-FUNCTION Landing {
-    SET targetPitch TO 0.
+FUNCTION Land {
+    PRINT "Flight Mode: Landing" AT (0, 10).
+    LOCAL targetHeading IS currentWP:HEADING.
+    LOCAL current_throttle IS 0.2.
 
-    IF ALT:RADAR > 50 {
-        SET pid_alt:SETPOINT TO 20.
-        SET desiredVS TO pid_alt:UPDATE(TIME:SECONDS, ALT:RADAR).
-    } ELSE IF ALT:RADAR > 10 {
-        SET desiredVS TO -2.
-    } ELSE {
-        SET desiredVS TO -0.5.
-    }
+    LOCK STEERING TO HEADING(targetHeading, 0).
+    LOCK THROTTLE TO current_throttle.
 
-    IF SHIP:STATUS = "LANDED" {
-        PRINT "Landed at " + currentWP:NAME.
-        RETURN "ARRIVED".
+    UNTIL SHIP:STATUS = "LANDED" {
+        IF ALT:RADAR > 20 {
+            SET vs_pid:SETPOINT TO -3.
+        } ELSE {
+            SET vs_pid:SETPOINT TO -1.
+        }
+        SET current_throttle TO vs_pid:UPDATE(TIME:SECONDS, SHIP:VERTICALSPEED).
+        WAIT 0.1.
     }
-    RETURN "LANDING".
+    LOCK THROTTLE TO 0.
+    UNLOCK STEERING.
+    UNLOCK THROTTLE.
+    PRINT "Touchdown Confirmed. Safely Landed." AT (0, 10).
 }
