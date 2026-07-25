@@ -90,15 +90,15 @@ FUNCTION Cruise {
     LOCAL targetHeading IS currentWP:GEOPOSITION:HEADING.
 
     SET alt_pid:SETPOINT TO 5250. // Target altitude above sea level.
-    SET speed_pid TO 50. // Target forward speed in m/s.
+    SET speed_pid:SETPOINT TO 50. // Target forward speed in m/s.
 
     LOCAL current_throttle IS 1.0.
     LOCAL current_pitch IS 0.
 
-    LOCK STEERING TO HEADING(targetHeading, currentPitch).
+    LOCK STEERING TO HEADING(targetHeading, current_Pitch).
     LOCK THROTTLE TO current_throttle.
 
-    UNTIL currentWP:DISTANCE <= 500 {
+    UNTIL currentWP:GEOPOSITION:DISTANCE <= 500 {
         SET targetHeading TO currentWP:GEOPOSITION:HEADING.
         SET current_pitch TO -1 * speed_pid:UPDATE(TIME:SECONDS, SHIP:VELOCITY:SURFACE:MAG).
         SET current_throttle TO alt_pid:UPDATE(TIME:SECONDS, ALTITUDE).
