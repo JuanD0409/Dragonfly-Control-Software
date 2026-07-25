@@ -77,8 +77,8 @@ UNTIL flightMode = "ARRIVED" {
 
 FUNCTION Liftoff {
     PRINT "Flight Mode: Liftoff" AT (0, 10).
-    LOCK STEERING TO HEADING(currentWP:HEADING, 0).
-    LOCK THROTTLE TO 0.33
+    LOCK STEERING TO HEADING(currentWP:GEOPOSITION:HEADING, 0).
+    LOCK THROTTLE TO 0.33.
 
     WAIT UNTIL ALT:RADAR >= 100.
     SET flightMode TO "CRUISE".
@@ -87,7 +87,7 @@ FUNCTION Liftoff {
 
 FUNCTION Cruise {
     PRINT "Flight Mode: Cruise" AT (0, 10).
-    LOCAL targetHeading IS currentWP:HEADING.
+    LOCAL targetHeading IS currentWP:GEOPOSITION:HEADING.
 
     SET alt_pid:SETPOINT TO 5250. // Target altitude above sea level.
     SET speed_pid TO 50. // Target forward speed in m/s.
@@ -99,7 +99,7 @@ FUNCTION Cruise {
     LOCK THROTTLE TO current_throttle.
 
     UNTIL currentWP:DISTANCE <= 500 {
-        SET targetHeading TO currentWP:HEADING.
+        SET targetHeading TO currentWP:GEOPOSITION:HEADING.
         SET current_pitch TO -1 * speed_pid:UPDATE(TIME:SECONDS, SHIP:VELOCITY:SURFACE:MAG).
         SET current_throttle TO alt_pid:UPDATE(TIME:SECONDS, ALTITUDE).
         WAIT 0.1.
@@ -109,7 +109,7 @@ FUNCTION Cruise {
 
 FUNCTION Approach {
     PRINT "Flight Mode: Approach" AT (0, 10).
-    LOCAL targetHeading IS currentWP:HEADING.
+    LOCAL targetHeading IS currentWP:GEOPOSITION:HEADING.
 
     SET speed_pid:SETPOINT TO 0.
     SET vs_pid:SETPOINT TO -5.
@@ -121,7 +121,7 @@ FUNCTION Approach {
     LOCK THROTTLE TO current_throttle.
 
     UNTIL SHIP:VELOCITY:SURFACE:MAG < 1 {
-        SET targetHeading TO currentWP:HEADING.
+        SET targetHeading TO currentWP:GEOPOSITION:HEADING.
         SET current_pitch TO -1 * speed_pid:UPDATE(TIME:SECONDS, SHIP:VELOCITY:SURFACE:MAG).
         SET current_throttle TO vs_pid:UPDATE(TIME:SECONDS, SHIP:VERTICALSPEED).
         WAIT 0.1.
@@ -131,7 +131,7 @@ FUNCTION Approach {
 
 FUNCTION Land {
     PRINT "Flight Mode: Landing" AT (0, 10).
-    LOCAL targetHeading IS currentWP:HEADING.
+    LOCAL targetHeading IS currentWP:GEOPOSITION:HEADING.
     LOCAL current_throttle IS 0.2.
 
     LOCK STEERING TO HEADING(targetHeading, 0).
