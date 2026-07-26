@@ -5,7 +5,7 @@ GLOBAL flightMode IS "LIFTOFF".
 // PID Controllers
 GLOBAL alt_pid IS PIDLOOP(0.05, 0.005, 0.1, 0, 1).
 GLOBAL vs_pid IS PIDLOOP (0.1, 0.01, 0.05, 0, 1).
-GLOBAL speed_pid IS PIDLOOP (0.5, 0.05, 0.1, 0, 30).
+GLOBAL speed_pid IS PIDLOOP (0.1, 0.05, 0.5, 0, 30).
 
 // Waypoint Search Function
 LOCAL wpList IS LIST().
