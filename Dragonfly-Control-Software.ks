@@ -97,7 +97,21 @@ FUNCTION Cruise {
     LOCK STEERING TO HEADING(targetHeading, current_Pitch).
     LOCK THROTTLE TO current_throttle.
 
-    UNTIL currentWP:GEOPOSITION:DISTANCE <= 500 {
+    // Approach Mode Activation Variables and Commands
+    LOCAL gravity IS BODY:MU / BODY:RADIUS ^2.
+    LOCAL maxPitch IS 45.
+    LOCAL craftBrake IS gravity * TAN(maxPitch).
+    LOCAL aeroBrake IS 3.0. // Adjust this number based on current planet's atmospheric density.
+    LOCAL totalBrake IS craftBrake + aeroBrake.
+    LOCAL targetSpeed IS speed_pid:SETPOINT.
+    LOCAL brakeDist IS (targetSpeed^2) / (2 * totalBrake).
+    LOCAL approachDist IS brakeDist * 1.2.
+
+    PRINT "Approach Activation Calulated: " + ROUND(approachDist, 1) + "m".
+
+    LOCAL groundDist IS VXCL(UP:VECTOR, currentWP:GEOPOSITION:POSITION):MAG.
+
+    UNTIL groundDist <= approachDist {
         SET targetHeading TO currentWP:GEOPOSITION:HEADING.
         SET current_pitch TO -1 * speed_pid:UPDATE(TIME:SECONDS, SHIP:VELOCITY:SURFACE:MAG).
         SET current_throttle TO alt_pid:UPDATE(TIME:SECONDS, ALTITUDE).
