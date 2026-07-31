@@ -117,7 +117,7 @@ FUNCTION Cruise {
         SET current_pitch TO -1 * speed_pid:UPDATE(TIME:SECONDS, SHIP:VELOCITY:SURFACE:MAG).
         SET current_throttle TO alt_pid:UPDATE(TIME:SECONDS, ALTITUDE).
     
-        WAIT 0.1
+        WAIT 0.1.
     }
     PRINT "Transitioning to Approach Mode.    " AT (0, 12).
 }
@@ -130,7 +130,7 @@ FUNCTION Approach {
     SET vs_pid:SETPOINT TO -5.
 
     LOCAL current_throttle IS 0.25.
-    LOCAL current_pitch IS 0.
+    LOCAL current_pitch IS 15.
 
     LOCK STEERING TO HEADING(targetHeading, current_pitch).
     LOCK THROTTLE TO current_throttle.
