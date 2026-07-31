@@ -1,11 +1,12 @@
 // Dragonfly Control Software
 
+PARAMETER targetAlt.
 GLOBAL flightMode IS "LIFTOFF".
 
 // PID Controllers
 GLOBAL alt_pid IS PIDLOOP(0.05, 0.005, 0.1, 0, 1).
 GLOBAL vs_pid IS PIDLOOP (0.1, 0.01, 0.05, 0, 1).
-GLOBAL speed_pid IS PIDLOOP (0.3, 0.01, 0.275, 0, 45).
+GLOBAL speed_pid IS PIDLOOP (0.5, 0.25, 0.25, 0, 45).
 
 // Waypoint Search Function
 LOCAL wpList IS LIST().
@@ -88,7 +89,7 @@ FUNCTION Cruise {
     PRINT "Flight Mode: Cruise  " AT (0, 10).
     LOCAL targetHeading IS currentWP:GEOPOSITION:HEADING.
 
-    SET alt_pid:SETPOINT TO 5250. // Target altitude above sea level.
+    SET alt_pid:SETPOINT TO targetAlt. // Target altitude above sea level.
     SET speed_pid:SETPOINT TO 50. // Target forward speed in m/s.
 
     LOCAL current_throttle IS 1.0.
@@ -97,7 +98,7 @@ FUNCTION Cruise {
     LOCK STEERING TO HEADING(targetHeading, current_Pitch).
     LOCK THROTTLE TO current_throttle.
 
-    // Approach Mode Activation Variables and Commands
+    // Approach Mode Activation Variables
     LOCAL gravity IS BODY:MU / BODY:RADIUS ^2.
     LOCAL maxPitch IS 45.
     LOCAL craftBrake IS gravity * TAN(maxPitch).
@@ -106,16 +107,17 @@ FUNCTION Cruise {
     LOCAL targetSpeed IS speed_pid:SETPOINT.
     LOCAL brakeDist IS (targetSpeed^2) / (2 * totalBrake).
     LOCAL approachDist IS brakeDist * 1.2.
+    LOCAL triggerDist IS SQRT(targetAlt^2 + approachDist^2).
 
-    PRINT "Approach Activation Calulated: " + ROUND(approachDist, 1) + "m".
+    PRINT "Target Altitude: " + targetAlt + "m" AT (0, 5).
+    PRINT "Approach Activation Calculated: " + ROUND(approachDist, 1) + "m" AT (0, 6).
 
-    LOCAL groundDist IS VXCL(UP:VECTOR, currentWP:GEOPOSITION:POSITION):MAG.
-
-    UNTIL groundDist <= approachDist {
+    UNTIL currentWP:GEOPOSITION:DISTANCE <= triggerDist {
         SET targetHeading TO currentWP:GEOPOSITION:HEADING.
         SET current_pitch TO -1 * speed_pid:UPDATE(TIME:SECONDS, SHIP:VELOCITY:SURFACE:MAG).
         SET current_throttle TO alt_pid:UPDATE(TIME:SECONDS, ALTITUDE).
-        WAIT 0.1.
+    
+        WAIT 0.1
     }
     PRINT "Transitioning to Approach Mode.    " AT (0, 12).
 }
