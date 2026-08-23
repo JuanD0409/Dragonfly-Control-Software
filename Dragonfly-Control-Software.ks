@@ -6,7 +6,7 @@ GLOBAL flightMode IS "LIFTOFF".
 // PID Controllers
 GLOBAL alt_pid IS PIDLOOP(0.05, 0.005, 0.1, 0, 1).
 GLOBAL vs_pid IS PIDLOOP (0.1, 0.01, 0.05, 0, 1).
-GLOBAL speed_pid IS PIDLOOP (0.5, 0.25, 0.25, 0, 45).
+GLOBAL speed_pid IS PIDLOOP (0.25, 0, 0.15, 0, 45).
 
 // Waypoint Search Function
 LOCAL wpList IS LIST().
@@ -99,7 +99,7 @@ FUNCTION Cruise {
     LOCK THROTTLE TO current_throttle.
 
     // Approach Mode Activation Variables
-    LOCAL gravity IS BODY:MU / BODY:RADIUS ^2.
+    LOCAL gravity IS BODY:MU / BODY:RADIUS^2.
     LOCAL maxPitch IS 45.
     LOCAL craftBrake IS gravity * TAN(maxPitch).
     LOCAL aeroBrake IS 3.0. // Adjust this number based on current planet's atmospheric density.
@@ -127,10 +127,10 @@ FUNCTION Approach {
     LOCAL targetHeading IS currentWP:GEOPOSITION:HEADING.
 
     SET speed_pid:SETPOINT TO 0.
-    SET vs_pid:SETPOINT TO -5.
+    SET alt_pid:SETPOINT TO targetAlt.
 
-    LOCAL current_throttle IS 0.25.
-    LOCAL current_pitch IS 15.
+    LOCAL current_throttle IS 1.0.
+    LOCAL current_pitch IS 0.
 
     LOCK STEERING TO HEADING(targetHeading, current_pitch).
     LOCK THROTTLE TO current_throttle.
@@ -138,8 +138,9 @@ FUNCTION Approach {
     UNTIL SHIP:VELOCITY:SURFACE:MAG < 1 {
         SET targetHeading TO currentWP:GEOPOSITION:HEADING.
         SET current_pitch TO -1 * speed_pid:UPDATE(TIME:SECONDS, SHIP:VELOCITY:SURFACE:MAG).
-        SET current_throttle TO vs_pid:UPDATE(TIME:SECONDS, SHIP:VERTICALSPEED).
-        WAIT 0.1.
+        SET current_throttle TO alt_pid:UPDATE(TIME:SECONDS, ALTITUDE).
+        
+        WAIT 0.1
     }
     PRINT "Transitioning to Landing.          " AT (0, 12).
 }
