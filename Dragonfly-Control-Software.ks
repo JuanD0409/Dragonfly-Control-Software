@@ -6,7 +6,7 @@ GLOBAL flightMode IS "LIFTOFF".
 // PID Controllers
 GLOBAL alt_pid IS PIDLOOP(0.05, 0.005, 0.1, 0, 1).
 GLOBAL vs_pid IS PIDLOOP (0.1, 0.01, 0.05, 0, 1).
-GLOBAL speed_pid IS PIDLOOP (0.25, 0, 0.15, 0, 45).
+GLOBAL speed_pid IS PIDLOOP (0.5, 0.1, 0.25, 0, 45).
 
 // Waypoint Search Function
 LOCAL wpList IS LIST().
@@ -140,7 +140,7 @@ FUNCTION Approach {
         SET current_pitch TO -1 * speed_pid:UPDATE(TIME:SECONDS, SHIP:VELOCITY:SURFACE:MAG).
         SET current_throttle TO alt_pid:UPDATE(TIME:SECONDS, ALTITUDE).
         
-        WAIT 0.1
+        WAIT 0.1.
     }
     PRINT "Transitioning to Landing.          " AT (0, 12).
 }
