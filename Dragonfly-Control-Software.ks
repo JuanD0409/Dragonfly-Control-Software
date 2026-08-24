@@ -167,3 +167,34 @@ FUNCTION Land {
     UNLOCK THROTTLE.
     PRINT "Touchdown Confirmed. Safely Landed." AT (0, 12).
 }
+
+// Additional Functions
+
+FUNCTION displayArrivalTime {
+    LOCAL targetGeo IS currentWP:GEOPOSITION.
+    LOCAL distance IS tragetGeo:GEOPOSITION:DISTANCE.
+    LOCAL speed IS SHIP:VELOCITY:SURFACE:MAG.
+    LOCAL etaString IS "".
+
+    IF speed > 0.2 {
+        LOCAL totalSeconds IS distance / speed.
+        LOCAL minutes IS FLOOR(totalSeconds / 60).
+        LOCAL seconds IS FLOOR(totalSeconds - (minutes * 60)).
+        LOCAL secString IS "" + seconds.
+        
+        IF seconds < 10 { SET secString TO "0" + seconds. }
+        SET etaString TO minutes + "m " + secstring + "s".
+    } ELSE {
+        SET secString TO "N/A Drone Stopped.".
+    }
+
+    PRINT "=======================================" AT (0, 14).
+    PRINT "            NAVIGATION DATA            " AT (0, 15).
+    PRINT "=======================================" AT (0, 16).
+    PRINT " Distance to Waypoint: " + ROUND(distance, 1) + " m      " AT (0, 17).
+    PRINT " Current Ground Speed: " + ROUND(speed, 1) + " m/s    " AT (0, 18).
+    PRINT " Estimated Arrival On: " + etaString + "           " AT (0, 19).
+    PRINT "=======================================" AT (0, 20).
+}
+
+// End of script
