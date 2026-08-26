@@ -77,16 +77,16 @@ UNTIL flightMode = "ARRIVED" {
 }
 
 FUNCTION Liftoff {
-    PRINT "Flight Mode: Liftoff " AT (0, 10).
+    PRINT "Flight Mode: Liftoff " AT (0, 8).
     LOCK STEERING TO HEADING(currentWP:GEOPOSITION:HEADING, 0).
     LOCK THROTTLE TO 0.33.
 
     WAIT UNTIL ALT:RADAR >= 100.
-    PRINT "Transitioning to Cruise Mode.      " AT (0, 12).
+    PRINT "Transitioning to Cruise Mode.      " AT (0, 10).
 }
 
 FUNCTION Cruise {
-    PRINT "Flight Mode: Cruise  " AT (0, 10).
+    PRINT "Flight Mode: Cruise  " AT (0, 8).
     LOCAL targetHeading IS currentWP:GEOPOSITION:HEADING.
 
     SET alt_pid:SETPOINT TO targetAlt. // Target altitude above sea level.
@@ -119,11 +119,11 @@ FUNCTION Cruise {
     
         WAIT 0.1.
     }
-    PRINT "Transitioning to Approach Mode.    " AT (0, 12).
+    PRINT "Transitioning to Approach Mode.    " AT (0, 10).
 }
 
 FUNCTION Approach {
-    PRINT "Flight Mode: Approach" AT (0, 10).
+    PRINT "Flight Mode: Approach" AT (0, 8).
     LOCAL targetHeading IS currentWP:GEOPOSITION:HEADING.
 
     SET speed_pid:SETPOINT TO 0.
@@ -142,11 +142,11 @@ FUNCTION Approach {
         
         WAIT 0.1.
     }
-    PRINT "Transitioning to Landing.          " AT (0, 12).
+    PRINT "Transitioning to Landing.          " AT (0, 10).
 }
 
 FUNCTION Land {
-    PRINT "Flight Mode: Landing  " AT (0, 10).
+    PRINT "Flight Mode: Landing  " AT (0, 8).
     LOCAL targetHeading IS currentWP:GEOPOSITION:HEADING.
     LOCAL current_throttle IS 0.2.
 
@@ -165,7 +165,7 @@ FUNCTION Land {
     LOCK THROTTLE TO 0.
     UNLOCK STEERING.
     UNLOCK THROTTLE.
-    PRINT "Touchdown Confirmed. Safely Landed." AT (0, 12).
+    PRINT "Touchdown Confirmed. Safely Landed." AT (0, 10).
 }
 
 // Additional Functions
@@ -196,5 +196,37 @@ FUNCTION displayArrivalTime {
     PRINT " Estimated Arrival On: " + etaString + "           " AT (0, 19).
     PRINT "=======================================" AT (0, 20).
 }
+
+FUNCTION executeScienceSequence {
+    PRINT "Initiating scientific analysis..." AT (0, 12).
+    SET current_throttle TO 0.
+
+    PRINT "Deploying drill..." AT (0, 12).
+    TOGGLE AG1.
+    WAIT 15.
+    
+    PRINT "Analyzing gravitational activity..." AT (0, 12).
+    TOGGLE AG2.
+    WAIT 10.
+    
+    PRINT "Analyzing seismic activity..." AT (0, 12).
+    TOGGLE AG3.
+    WAIT 10.
+
+    PRINT "Scientific analysis terminated." AT (0, 12).
+
+    // Transmit all data to Kerbin.
+    FOR p IN SHIP:PARTS {
+        IF p:HASMODULE("ModuleScienceExperiment") {
+            LOCAL scienceModule IS p:GETMODULE("ModuleScienceExperiment").
+            IF scienceModule:HASDATA {
+                scienceModule:TRANSMIT().
+                WAIT 1.
+            }
+        }
+    }
+}
+
+PRINT "Data transmission complete." AT (0, 12).
 
 // End of script
