@@ -126,21 +126,25 @@ FUNCTION Approach {
     PRINT "Flight Mode: Approach" AT (0, 8).
     LOCAL targetHeading IS currentWP:GEOPOSITION:HEADING.
 
-    SET speed_pid:SETPOINT TO 0.
     SET alt_pid:SETPOINT TO targetAlt.
 
     LOCAL current_throttle IS 1.0.
     LOCAL current_pitch IS 0.
+    LOCAL groundDistance IS VXCL(UP:VECTOR, currentWP:GEOPOSITION:POSITION):MAG.
 
     LOCK STEERING TO HEADING(targetHeading, current_pitch).
     LOCK THROTTLE TO current_throttle.
 
     UNTIL SHIP:VELOCITY:SURFACE:MAG < 1 {
         SET targetHeading TO currentWP:GEOPOSITION:HEADING.
+        SET groundDistance TO VXCL(UP:VECTOR, currentWP:GEOPOSITION:POSITION):MAG.
+    
+        LOCAL dynamicSpeed IS groundDistance * 0.1.
+        SET speed_pid:SETPOINT TO dynamicSpeed.
         SET current_pitch TO -1 * speed_pid:UPDATE(TIME:SECONDS, SHIP:VELOCITY:SURFACE:MAG).
         SET current_throttle TO alt_pid:UPDATE(TIME:SECONDS, ALTITUDE).
-        
-        WAIT 0.1.
+    
+        WAIT 0.1
     }
     PRINT "Transitioning to Landing.          " AT (0, 10).
 }
