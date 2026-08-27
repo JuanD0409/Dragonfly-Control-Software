@@ -136,8 +136,10 @@ FUNCTION Approach {
     LOCK THROTTLE TO current_throttle.
 
     UNTIL SHIP:VELOCITY:SURFACE:MAG < 1 {
-        SET targetHeading TO currentWP:GEOPOSITION:HEADING.
         SET groundDistance TO VXCL(UP:VECTOR, currentWP:GEOPOSITION:POSITION):MAG.
+        IF groundDistance > 15 {
+            SET targetHeading TO currentWP:GEOPOSITION:HEADING.
+        }
     
         LOCAL dynamicSpeed IS groundDistance * 0.1.
         SET speed_pid:SETPOINT TO dynamicSpeed.
