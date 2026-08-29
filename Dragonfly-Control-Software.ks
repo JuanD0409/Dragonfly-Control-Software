@@ -63,6 +63,7 @@ UNTIL flightMode = "ARRIVED" {
     }
     ELSE IF flightMode = "CRUISE" {
         Cruise().
+        showSCANsatData().
         SET flightMode TO "APPROACH".
     }
     ELSE IF flightMode = "APPROACH" {
@@ -234,5 +235,25 @@ FUNCTION executeScienceSequence {
 }
 
 PRINT "Data transmission complete." AT (0, 12).
+
+FUNCTION showSCANsatData {
+    IF ADDONS:SCANSAT:AVAILABLE {
+        LOCAL currentPlanet IS SHIP:BODY.
+        LOCAL currentPosition IS SHIP:GEOPOSITION.
+    
+        LOCAL elevation IS ADDONS:SCANSAT:ELEVATION(currentPlanet, currentPosition).
+        LOCAL biome IS ADDONS:SCANSAT:CURRENTBIOME(currentPlanet, currentPosition).
+    
+        UNTIL flightMode = "LANDED" {
+            PRINT "=== SCANsat Terrain Info ===" AT (0, 22).
+            PRINT "Current Lat/Lng: " + ROUND(currentPosition:LAT, 4) + ", " + ROUND(currentPosition:LNG, 4) AT (0, 23)
+            PRINT "Current Elevation: " + ROUND(elevation, 2) + "m" AT (0, 24).
+            PRINT "Current Biome: " + biome AT (0, 25).
+            PRINT "============================" AT (0, 26).
+        } ELSE {
+            PRINT "Error: SCANsat is not available.".
+        }
+    }
+}
 
 // End of script
