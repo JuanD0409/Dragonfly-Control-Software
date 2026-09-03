@@ -57,13 +57,13 @@ WAIT 5.
 
 // Main Control Loop
 UNTIL flightMode = "ARRIVED" {
+    showSCANsatData(SHIP:BODY, SHIP:GEOPOSITION).
     IF flightMode = "LIFTOFF" {
         Liftoff().
         SET flightMode TO "CRUISE".
     }
     ELSE IF flightMode = "CRUISE" {
         Cruise().
-        showSCANsatData().
         SET flightMode TO "APPROACH".
     }
     ELSE IF flightMode = "APPROACH" {
@@ -147,7 +147,7 @@ FUNCTION Approach {
         SET current_pitch TO -1 * speed_pid:UPDATE(TIME:SECONDS, SHIP:VELOCITY:SURFACE:MAG).
         SET current_throttle TO alt_pid:UPDATE(TIME:SECONDS, ALTITUDE).
     
-        WAIT 0.1
+        WAIT 0.1.
     }
     PRINT "Transitioning to Landing.          " AT (0, 10).
 }
@@ -237,22 +237,23 @@ FUNCTION executeScienceSequence {
 PRINT "Data transmission complete." AT (0, 12).
 
 FUNCTION showSCANsatData {
+    PARAMETER currentPlanet, currentPosition.
+    
     IF ADDONS:SCANSAT:AVAILABLE {
-        LOCAL currentPlanet IS SHIP:BODY.
-        LOCAL currentPosition IS SHIP:GEOPOSITION.
+        LOCAL lat_value IS currentPosition:LAT.
+        LOCAL lng_value IS currentPosition:LNG.
     
-        LOCAL elevation IS ADDONS:SCANSAT:ELEVATION(currentPlanet, currentPosition).
-        LOCAL biome IS ADDONS:SCANSAT:CURRENTBIOME(currentPlanet, currentPosition).
+        LOCAL terrainElevation IS ADDONS:SCANSAT:ELEVATION(lat_value, lng_value).
+        LOCAL terrainBiome IS ADDONS:SCANSAT:BIOME(lat_value, lng_value).
     
-        UNTIL flightMode = "LANDED" {
-            PRINT "=== SCANsat Terrain Info ===" AT (0, 22).
-            PRINT "Current Lat/Lng: " + ROUND(currentPosition:LAT, 4) + ", " + ROUND(currentPosition:LNG, 4) AT (0, 23)
-            PRINT "Current Elevation: " + ROUND(elevation, 2) + "m" AT (0, 24).
-            PRINT "Current Biome: " + biome AT (0, 25).
-            PRINT "============================" AT (0, 26).
-        } ELSE {
-            PRINT "Error: SCANsat is not available.".
-        }
+        PRINT "=== SCANsat Telemetry ===".
+        PRINT "Planet: " + SHIP:BODY:NAME.
+        PRINT "Coordinates: " + ROUND(lat_value, 4) + ROUND(lng_value, 4).
+        PRINT "Elevation: " + ROUND(terrainElevation, 2) + " m".
+        PRINT "Biome: " + terrainBiome.
+        PRINT "=========================".
+    } ELSE. {
+        PRINT "SCANsat is not available.".
     }
 }
 
