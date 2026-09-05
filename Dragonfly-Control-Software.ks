@@ -8,6 +8,9 @@ GLOBAL alt_pid IS PIDLOOP(0.05, 0.005, 0.1, 0, 1).
 GLOBAL vs_pid IS PIDLOOP (0.1, 0.01, 0.05, 0, 1).
 GLOBAL speed_pid IS PIDLOOP (0.5, 0.1, 0.25, 0, 45).
 
+PRINT "Dragonfly Control Software Initiated.".
+WAIT 3.
+
 // Waypoint Search Function
 LOCAL wpList IS LIST().
 FOR wp IN ALLWAYPOINTS() {
@@ -17,6 +20,7 @@ FOR wp IN ALLWAYPOINTS() {
 }
 
 IF wpList:LENGTH = 0 {
+    PRINT "Error: Navigation is not operable.".
     PRINT "No waypoints found on this planet.".
     PRINT "Please add a waypoint in this planet.".
     WAIT 3.
@@ -57,7 +61,10 @@ WAIT 5.
 
 // Main Control Loop
 UNTIL flightMode = "ARRIVED" {
-    showSCANsatData(SHIP:BODY, SHIP:GEOPOSITION).
+    LOCAL currentPlanet IS SHIP:BODY.
+    LOCAL currentPosition IS SHIP:GEOPOSITION.
+    
+    showSCANsatData(currentPlanet, currentPosition).
     IF flightMode = "LIFTOFF" {
         Liftoff().
         SET flightMode TO "CRUISE".
@@ -237,21 +244,19 @@ FUNCTION executeScienceSequence {
 PRINT "Data transmission complete." AT (0, 12).
 
 FUNCTION showSCANsatData {
-    PARAMETER currentPlanet, currentPosition.
+    PARAMETER currentPlanet.
+    PARAMETER currentPosition.
     
-    IF ADDONS:SCANSAT:AVAILABLE {
-        LOCAL lat_value IS currentPosition:LAT.
-        LOCAL lng_value IS currentPosition:LNG.
+    IF ADDONS:SCANSAT:AVAILABLE {    
+        LOCAL terrainElevation IS ADDONS:SCANSAT:ELEVATION(currentPlanet, currentPosition).
+        LOCAL terrainBiome IS ADDONS:SCANSAT:GETBIOME(currentPlanet, currentPosition).
     
-        LOCAL terrainElevation IS ADDONS:SCANSAT:ELEVATION(lat_value, lng_value).
-        LOCAL terrainBiome IS ADDONS:SCANSAT:BIOME(lat_value, lng_value).
-    
-        PRINT "=== SCANsat Telemetry ===".
-        PRINT "Planet: " + SHIP:BODY:NAME.
-        PRINT "Coordinates: " + ROUND(lat_value, 4) + ROUND(lng_value, 4).
-        PRINT "Elevation: " + ROUND(terrainElevation, 2) + " m".
-        PRINT "Biome: " + terrainBiome.
-        PRINT "=========================".
+        PRINT "=== SCANsat Telemetry ===" AT (0, 22).
+        PRINT "Planet: " + SHIP:BODY:NAME AT (0, 23).
+        PRINT "Coordinates: " + ROUND(currentPosition:LAT, 4) + ", " + ROUND(currentPosition:LNG, 4) AT (0, 24).
+        PRINT "Elevation: " + ROUND(terrainElevation, 2) + " m" AT (0, 25).
+        PRINT "Biome: " + terrainBiome AT (0, 26).
+        PRINT "=========================" AT (0, 27).
     } ELSE. {
         PRINT "SCANsat is not available.".
     }
