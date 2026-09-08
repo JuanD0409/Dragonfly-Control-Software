@@ -176,11 +176,17 @@ FUNCTION Land {
     LOCK STEERING TO LOOKDIRUP(levelPitch, UP:VECTOR).
     LOCK THROTTLE TO current_throttle.
 
-    WAIT 0.1
+    WAIT 0.1.
 
     UNTIL SHIP:STATUS = "LANDED" {
-        IF ALT:RADAR > 20 {
-            SET vs_pid:SETPOINT TO -5.
+        IF ALT:RADAR > 100 {
+            SET vs_pid:SETPOINT TO -10.
+        }
+        ELSE IF ALT:RADAR > 50 {
+            SET vs_pid:SETPOINT TO -5
+        } 
+        ELSE IF ALT:RADAR > 25 {
+            SET vs_pid:SETPOINT TO -2.5
         } ELSE {
             SET vs_pid:SETPOINT TO -1.
         }
@@ -269,7 +275,7 @@ FUNCTION showSCANsatData {
         PRINT "Biome: " + terrainBiome AT (0, 26).
         PRINT "=========================" AT (0, 27).
     } ELSE. {
-        PRINT "SCANsat is not available.".
+        PRINT "SCANsat is not available." AT (0, 21).
     }
 }
 
