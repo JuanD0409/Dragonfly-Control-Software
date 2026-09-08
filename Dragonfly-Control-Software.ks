@@ -144,7 +144,7 @@ FUNCTION Approach {
     LOCK STEERING TO HEADING(targetHeading, current_pitch).
     LOCK THROTTLE TO current_throttle.
 
-    UNTIL SHIP:VELOCITY:SURFACE:MAG < 1 {
+    UNTIL SHIP:VELOCITY:SURFACE:MAG < 5 {
         SET groundDistance TO VXCL(UP:VECTOR, currentWP:GEOPOSITION:POSITION):MAG.
     
         IF groundDistance < minDistance {
@@ -172,6 +172,7 @@ FUNCTION Land {
     LOCAL targetHeading IS currentWP:GEOPOSITION:HEADING.
     LOCAL current_throttle IS THROTTLE.
     LOCAL levelPitch IS VXCL(UP:VECTOR, SHIP:FACING:FOREVECTOR).
+    LOCAL idleThrottle IS 0.15.
 
     LOCK STEERING TO LOOKDIRUP(levelPitch, UP:VECTOR).
     LOCK THROTTLE TO current_throttle.
@@ -179,18 +180,15 @@ FUNCTION Land {
     WAIT 0.1.
 
     UNTIL SHIP:STATUS = "LANDED" {
-        IF ALT:RADAR > 100 {
-            SET vs_pid:SETPOINT TO -10.
-        }
-        ELSE IF ALT:RADAR > 50 {
-            SET vs_pid:SETPOINT TO -5
-        } 
-        ELSE IF ALT:RADAR > 25 {
-            SET vs_pid:SETPOINT TO -2.5
-        } ELSE {
-            SET vs_pid:SETPOINT TO -1.
-        }
-        SET current_throttle TO vs_pid:UPDATE(TIME:SECONDS, SHIP:VERTICALSPEED).
+        LOCAL dynamicVS IS -1 * SQRT(ALT:RADAR) * 0.5.
+
+        SET dynamicVS TO MIN(-1.0, dynamicVS).
+        SET vs_pid:SETPOINT TO dynamicVS.
+
+        LOCAL pidOutput IS vs_pid:UPDATE(TIME:SECONDS, SHIP:VERTICALSPEED).
+
+        SET current_throttle TO MAX(idleThrottle, pidOutput).
+
         WAIT 0.1.
     }
     LOCK THROTTLE TO 0.
