@@ -133,43 +133,54 @@ FUNCTION Cruise {
 FUNCTION Approach {
     PRINT "Flight Mode: Approach" AT (0, 8).
     LOCAL targetHeading IS currentWP:GEOPOSITION:HEADING.
-
     SET alt_pid:SETPOINT TO targetAlt.
 
     LOCAL current_throttle IS 1.0.
     LOCAL current_pitch IS 0.
     LOCAL groundDistance IS VXCL(UP:VECTOR, currentWP:GEOPOSITION:POSITION):MAG.
+    
+    LOCAL minDistance IS groundDistance.
 
     LOCK STEERING TO HEADING(targetHeading, current_pitch).
     LOCK THROTTLE TO current_throttle.
 
     UNTIL SHIP:VELOCITY:SURFACE:MAG < 1 {
         SET groundDistance TO VXCL(UP:VECTOR, currentWP:GEOPOSITION:POSITION):MAG.
-        IF groundDistance > 15 {
-            SET targetHeading TO currentWP:GEOPOSITION:HEADING.
+    
+        IF groundDistance < minDistance {
+            SET minDistance TO groundDistance.
         }
     
-        LOCAL dynamicSpeed IS groundDistance * 0.1.
+        IF minDistance < 2 {
+            SET minDistance TO 0.
+        }
+    
+        LOCAL dynamicSpeed IS SQRT(minDistance) * 1.5.
+    
         SET speed_pid:SETPOINT TO dynamicSpeed.
         SET current_pitch TO -1 * speed_pid:UPDATE(TIME:SECONDS, SHIP:VELOCITY:SURFACE:MAG).
         SET current_throttle TO alt_pid:UPDATE(TIME:SECONDS, ALTITUDE).
-    
+
         WAIT 0.1.
     }
-    PRINT "Transitioning to Landing.          " AT (0, 10).
+    PRINT "Transitioning to Landing Mode.     " AT (0, 10).
 }
 
 FUNCTION Land {
     PRINT "Flight Mode: Landing  " AT (0, 8).
+    
     LOCAL targetHeading IS currentWP:GEOPOSITION:HEADING.
-    LOCAL current_throttle IS 0.2.
+    LOCAL current_throttle IS THROTTLE.
+    LOCAL levelPitch IS VXCL(UP:VECTOR, SHIP:FACING:FOREVECTOR).
 
-    LOCK STEERING TO HEADING(targetHeading, 0).
+    LOCK STEERING TO LOOKDIRUP(levelPitch, UP:VECTOR).
     LOCK THROTTLE TO current_throttle.
+
+    WAIT 0.1
 
     UNTIL SHIP:STATUS = "LANDED" {
         IF ALT:RADAR > 20 {
-            SET vs_pid:SETPOINT TO -3.
+            SET vs_pid:SETPOINT TO -5.
         } ELSE {
             SET vs_pid:SETPOINT TO -1.
         }
