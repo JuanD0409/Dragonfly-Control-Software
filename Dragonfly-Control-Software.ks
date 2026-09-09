@@ -64,7 +64,6 @@ UNTIL flightMode = "ARRIVED" {
     LOCAL currentPlanet IS SHIP:BODY.
     LOCAL currentPosition IS SHIP:GEOPOSITION.
     
-    showSCANsatData(currentPlanet, currentPosition).
     IF flightMode = "LIFTOFF" {
         Liftoff().
         SET flightMode TO "CRUISE".
@@ -79,6 +78,7 @@ UNTIL flightMode = "ARRIVED" {
     }
     ELSE IF flightMode = "LAND" {
         Land().
+        executeScienceSequence().
         SET flightMode TO "ARRIVED".
     }
     WAIT 0.1.
@@ -96,6 +96,7 @@ FUNCTION Liftoff {
 FUNCTION Cruise {
     PRINT "Flight Mode: Cruise  " AT (0, 8).
     LOCAL targetHeading IS currentWP:GEOPOSITION:HEADING.
+    LOCAL dataUpdate IS TIME:SECONDS.
 
     SET alt_pid:SETPOINT TO targetAlt. // Target altitude above sea level.
     SET speed_pid:SETPOINT TO 50. // Target forward speed in m/s.
@@ -123,7 +124,14 @@ FUNCTION Cruise {
         SET targetHeading TO currentWP:GEOPOSITION:HEADING.
         SET current_pitch TO -1 * speed_pid:UPDATE(TIME:SECONDS, SHIP:VELOCITY:SURFACE:MAG).
         SET current_throttle TO alt_pid:UPDATE(TIME:SECONDS, ALTITUDE).
-    
+        
+        IF TIME:SECONDS > dataUpdate + 1 {
+            displayArrivalTime(currentWP).
+            showSCANsatData(currentPlanet, currentPosition).
+        
+            SET dataUpdate TO TIME:SECONDS.
+        }
+        
         WAIT 0.1.
     }
     PRINT "Transitioning to Approach Mode.    " AT (0, 10).
@@ -132,6 +140,7 @@ FUNCTION Cruise {
 FUNCTION Approach {
     PRINT "Flight Mode: Approach" AT (0, 8).
     LOCAL targetHeading IS currentWP:GEOPOSITION:HEADING.
+    LOCAL dataUpdate IS TIME:SECONDS.
     SET alt_pid:SETPOINT TO targetAlt.
 
     LOCAL current_throttle IS 1.0.
@@ -159,7 +168,14 @@ FUNCTION Approach {
         SET speed_pid:SETPOINT TO dynamicSpeed.
         SET current_pitch TO -1 * speed_pid:UPDATE(TIME:SECONDS, SHIP:VELOCITY:SURFACE:MAG).
         SET current_throttle TO alt_pid:UPDATE(TIME:SECONDS, ALTITUDE).
-
+        
+        IF TIME:SECONDS > dataUpdate + 1 {
+            displayArrivalTime(currentWP).
+            showSCANsatData(currentPlanet, currentPosition).
+        
+            SET dataUpdate TO TIME:SECONDS.
+        }
+        
         WAIT 0.1.
     }
     PRINT "Transitioning to Landing Mode.     " AT (0, 10).
@@ -199,8 +215,10 @@ FUNCTION Land {
 // Additional Functions
 
 FUNCTION displayArrivalTime {
+    PARAMETER currentWP.
+    
     LOCAL targetGeo IS currentWP:GEOPOSITION.
-    LOCAL distance IS tragetGeo:GEOPOSITION:DISTANCE.
+    LOCAL distance IS targetGeo:DISTANCE.
     LOCAL speed IS SHIP:VELOCITY:SURFACE:MAG.
     LOCAL etaString IS "".
 
@@ -216,13 +234,15 @@ FUNCTION displayArrivalTime {
         SET secString TO "N/A Drone Stopped.".
     }
 
-    PRINT "=======================================" AT (0, 14).
-    PRINT "            NAVIGATION DATA            " AT (0, 15).
-    PRINT "=======================================" AT (0, 16).
-    PRINT " Distance to Waypoint: " + ROUND(distance, 1) + " m      " AT (0, 17).
-    PRINT " Current Ground Speed: " + ROUND(speed, 1) + " m/s    " AT (0, 18).
-    PRINT " Estimated Arrival On: " + etaString + "           " AT (0, 19).
-    PRINT "=======================================" AT (0, 20).
+    UNTIL flightMode = "LANDED" {
+        PRINT "=======================================" AT (0, 14).
+        PRINT "            NAVIGATION DATA            " AT (0, 15).
+        PRINT "=======================================" AT (0, 16).
+        PRINT " Distance to Waypoint: " + ROUND(distance, 1) + " m      " AT (0, 17).
+        PRINT " Current Ground Speed: " + ROUND(speed, 1) + " m/s    " AT (0, 18).
+        PRINT " Estimated Arrival On: " + etaString + "           " AT (0, 19).
+        PRINT "=======================================" AT (0, 20).
+    }
 }
 
 FUNCTION executeScienceSequence {
@@ -269,12 +289,14 @@ FUNCTION showSCANsatData {
         LOCAL terrainElevation IS ADDONS:SCANSAT:ELEVATION(currentPlanet, currentPosition).
         LOCAL terrainBiome IS ADDONS:SCANSAT:GETBIOME(currentPlanet, currentPosition).
     
-        PRINT "=== SCANsat Telemetry ===" AT (0, 22).
-        PRINT "Planet: " + SHIP:BODY:NAME AT (0, 23).
-        PRINT "Coordinates: " + ROUND(currentPosition:LAT, 4) + ", " + ROUND(currentPosition:LNG, 4) AT (0, 24).
-        PRINT "Elevation: " + ROUND(terrainElevation, 2) + " m" AT (0, 25).
-        PRINT "Biome: " + terrainBiome AT (0, 26).
-        PRINT "=========================" AT (0, 27).
+        UNTIL flightMode = "LANDED" {
+            PRINT "=== SCANsat Telemetry ===" AT (0, 22).
+            PRINT "Planet: " + SHIP:BODY:NAME AT (0, 23).
+            PRINT "Coordinates: " + ROUND(currentPosition:LAT, 4) + ", " + ROUND(currentPosition:LNG, 4) AT (0, 24).
+            PRINT "Elevation: " + ROUND(terrainElevation, 2) + " m" AT (0, 25).
+            PRINT "Biome: " + terrainBiome AT (0, 26).
+            PRINT "=========================" AT (0, 27).
+        }
     } ELSE. {
         PRINT "SCANsat is not available." AT (0, 21).
     }
