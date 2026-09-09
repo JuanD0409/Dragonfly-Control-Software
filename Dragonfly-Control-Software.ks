@@ -118,7 +118,6 @@ FUNCTION Cruise {
     LOCAL triggerDist IS SQRT(targetAlt^2 + approachDist^2).
 
     PRINT "Target Altitude: " + targetAlt + "m" AT (0, 5).
-    PRINT "Approach Activation Calculated: " + ROUND(approachDist, 1) + "m" AT (0, 6).
 
     UNTIL currentWP:GEOPOSITION:DISTANCE <= triggerDist {
         SET targetHeading TO currentWP:GEOPOSITION:HEADING.
@@ -227,22 +226,26 @@ FUNCTION displayArrivalTime {
 }
 
 FUNCTION executeScienceSequence {
-    PRINT "Initiating scientific analysis..." AT (0, 12).
+    PRINT "Initiating scientific analysis...     " AT (0, 12).
     SET current_throttle TO 0.
 
-    PRINT "Deploying drill..." AT (0, 12).
+    PRINT "Deploying sampling drill...           " AT (0, 12).
     TOGGLE AG1.
     WAIT 15.
     
-    PRINT "Analyzing gravitational activity..." AT (0, 12).
+    PRINT "Analyzing gravitational activity...   " AT (0, 12).
     TOGGLE AG2.
-    WAIT 10.
+    WAIT 5.
     
-    PRINT "Analyzing seismic activity..." AT (0, 12).
+    PRINT "Analyzing seismic activity...         " AT (0, 12).
     TOGGLE AG3.
-    WAIT 10.
+    WAIT 5.
 
-    PRINT "Scientific analysis terminated." AT (0, 12).
+    PRINT "Reading barometrics and temperature..." AT (0, 12).
+    TOGGLE AG4.
+    WAIT 5.
+
+    PRINT "Scientific analysis terminated.       " AT (0, 12).
 
     // Transmit all data to Kerbin.
     FOR p IN SHIP:PARTS {
