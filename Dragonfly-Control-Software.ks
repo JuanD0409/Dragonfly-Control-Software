@@ -62,9 +62,6 @@ WAIT 5.
 
 // Main Control Loop
 UNTIL flightMode = "ARRIVED" {
-    LOCAL currentPlanet IS SHIP:BODY.
-    LOCAL currentPosition IS SHIP:GEOPOSITION.
-
     IF flightMode = "LIFTOFF" {
         Liftoff().
         SET flightMode TO "CRUISE".
@@ -126,7 +123,10 @@ FUNCTION Cruise {
         SET current_pitch TO -1 * speed_pid:UPDATE(TIME:SECONDS, SHIP:VELOCITY:SURFACE:MAG).
         SET current_throttle TO alt_pid:UPDATE(TIME:SECONDS, ALTITUDE).
         
-        printFlightData().
+        LOCAL currentPlanet IS SHIP:BODY.
+        LOCAL currentPosition IS SHIP:GEOPOSITION.
+        
+        printFlightData(currentWP, currentPlanet, currentPosition).
 
         WAIT 0.1.
     }
@@ -164,7 +164,10 @@ FUNCTION Approach {
         SET current_pitch TO -1 * speed_pid:UPDATE(TIME:SECONDS, SHIP:VELOCITY:SURFACE:MAG).
         SET current_throttle TO alt_pid:UPDATE(TIME:SECONDS, ALTITUDE).
         
-        printFlightData().
+        LOCAL currentPlanet IS SHIP:BODY.
+        LOCAL currentposition IS SHIP:GEOPOSITION.
+        
+        printFlightData(currentWP, currentPlanet, currentPosition).
 
         WAIT 0.1.
     }
@@ -260,14 +263,17 @@ FUNCTION printFlightData {
         SET secString TO "N/A Drone Stopped.".
     }
     IF ADDONS:SCANSAT:AVAILABLE {
-        LOCAL terrainElevation IS ADDONS:SCANSAT:ELEVATION(currentPlanet, currentPosition).
-        LOCAL terrainBiome IS ADDONS:SCANSAT:GETBIOME(currentPlanet, currentPosition).
-        LOCAL terrainSlope IS ADDONS:SCANSAT:SLOPE(currentPlanet, currentPosition).
+        LOCAL currentPlanet IS SHIP:BODY.
+        LOCAL currentPosition IS SHIP:GEOPOSITION.
     } ELSE {
         PRINT "SCANsat is not available." AT (0, 24).
     }
 
     UNTIL flightMode = "LANDED" {
+        LOCAL terrainElevation IS ADDONS:SCANSAT:ELEVATION(currentPlanet, currentPosition).
+        LOCAL terrainBiome IS ADDONS:SCANSAT:GETBIOME(currentPlanet, currentPosition).
+        LOCAL terrainSlope IS ADDONS:SCANSAT:SLOPE(currentPlanet, currentPosition).
+        
         PRINT "=== NAVIGATION AND TELEMETRY ===" AT (0, 14).
         PRINT " Planet: " + SHIP:BODY:NAME AT (0, 15).
         PRINT " Coordinates: " + ROUND(currentPosition:LAT, 4) + ", " + ROUND(currentPosition:LNG, 4) AT (0, 16).
