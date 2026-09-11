@@ -1,7 +1,7 @@
 // Dragonfly Control Software
 
-PARAMETER targetAlt.
 SET CONFIG:IPU TO 1000.
+PARAMETER targetAlt.
 GLOBAL flightMode IS "LIFTOFF".
 
 // PID Controllers
@@ -118,6 +118,8 @@ FUNCTION Cruise {
 
     PRINT "Target Altitude: " + targetAlt + "m" AT (0, 5).
 
+    LOCAL dataUpdate IS TIME:SECONDS.
+
     UNTIL currentWP:GEOPOSITION:DISTANCE <= triggerDist {
         SET targetHeading TO currentWP:GEOPOSITION:HEADING.
         SET current_pitch TO -1 * speed_pid:UPDATE(TIME:SECONDS, SHIP:VELOCITY:SURFACE:MAG).
@@ -125,8 +127,11 @@ FUNCTION Cruise {
         
         LOCAL currentPlanet IS SHIP:BODY.
         LOCAL currentPosition IS SHIP:GEOPOSITION.
-        
-        printFlightData(currentWP, currentPlanet, currentPosition).
+
+        IF TIME:SECONDS > dataUpdate + 1{
+            printFlightData(currentWP, currentPlanet, currentPosition).
+            SET dataUpdate TO TIME:SECONDS.
+        }
 
         WAIT 0.1.
     }
@@ -147,6 +152,8 @@ FUNCTION Approach {
     LOCK STEERING TO HEADING(targetHeading, current_pitch).
     LOCK THROTTLE TO current_throttle.
 
+    LOCAL dataUpdate IS TIME:SECONDS.
+
     UNTIL SHIP:VELOCITY:SURFACE:MAG < 5 {
         SET groundDistance TO VXCL(UP:VECTOR, currentWP:GEOPOSITION:POSITION):MAG.
     
@@ -166,9 +173,11 @@ FUNCTION Approach {
         
         LOCAL currentPlanet IS SHIP:BODY.
         LOCAL currentposition IS SHIP:GEOPOSITION.
-        
-        printFlightData(currentWP, currentPlanet, currentPosition).
 
+        IF TIME:SECONDS > dataUpdate + 1 {
+            printFlightData(currentWP, currentPlanet, currentPosition).
+            SET dataUpdate TO TIME:SECONDS.
+        }    
         WAIT 0.1.
     }
     PRINT "Transitioning to Landing Mode.     " AT (0, 10).
@@ -241,7 +250,7 @@ FUNCTION executeScienceSequence {
     }
 }
 
-PRINT "Data transmission complete." AT (0, 12).
+PRINT "Data transmission complete.           " AT (0, 12).
 
 FUNCTION printFlightData {
     PARAMETER currentWP, currentPlanet, currentPosition.
@@ -282,7 +291,7 @@ FUNCTION printFlightData {
         PRINT " Biome: " + terrainBiome AT (0, 19).
         PRINT " Distance to Waypoint: " + ROUND(distance, 1) + "m      " AT (0, 20).
         PRINT " Current Ground Speed: " + ROUND(speed, 1) + "m/s    " AT (0, 21).
-        PRINT " Estimated Arrival On: " + secString + "           " AT (0, 22).
+        PRINT " Estimated Arrival On: " + etaString + "           " AT (0, 22).
         PRINT "================================" AT (0, 23).
     }
 }
