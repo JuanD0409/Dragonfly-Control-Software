@@ -1,6 +1,6 @@
 // Dragonfly Control Software
 
-SET CONFIG:IPU TO 1000.
+SET CONFIG:IPU TO 2000.
 PARAMETER targetAlt.
 GLOBAL flightMode IS "LIFTOFF".
 
@@ -118,20 +118,16 @@ FUNCTION Cruise {
 
     PRINT "Target Altitude: " + targetAlt + "m" AT (0, 5).
 
-    LOCAL dataUpdate IS TIME:SECONDS.
-
-    UNTIL currentWP:GEOPOSITION:DISTANCE <= triggerDist {
-        SET targetHeading TO currentWP:GEOPOSITION:HEADING.
-        SET current_pitch TO -1 * speed_pid:UPDATE(TIME:SECONDS, SHIP:VELOCITY:SURFACE:MAG).
-        SET current_throttle TO alt_pid:UPDATE(TIME:SECONDS, ALTITUDE).
-        
+    UNTIL currentWP:GEOPOSITION:DISTANCE <= triggerDist {       
         LOCAL currentPlanet IS SHIP:BODY.
         LOCAL currentPosition IS SHIP:GEOPOSITION.
 
-        IF TIME:SECONDS > dataUpdate + 1{
-            printFlightData(currentWP, currentPlanet, currentPosition).
-            SET dataUpdate TO TIME:SECONDS.
-        }
+        SET targetHeading TO currentWP:GEOPOSITION:HEADING.
+        SET current_pitch TO -1 * speed_pid:UPDATE(TIME:SECONDS, SHIP:VELOCITY:SURFACE:MAG).
+        SET current_throttle TO alt_pid:UPDATE(TIME:SECONDS, ALTITUDE).
+
+            
+        printFlightData(currentWP, currentPlanet, currentPosition).
 
         WAIT 0.1.
     }
@@ -152,7 +148,8 @@ FUNCTION Approach {
     LOCK STEERING TO HEADING(targetHeading, current_pitch).
     LOCK THROTTLE TO current_throttle.
 
-    LOCAL dataUpdate IS TIME:SECONDS.
+    LOCAL currentPlanet IS SHIP:BODY.
+    LOCAL currentposition IS SHIP:GEOPOSITION.
 
     UNTIL SHIP:VELOCITY:SURFACE:MAG < 5 {
         SET groundDistance TO VXCL(UP:VECTOR, currentWP:GEOPOSITION:POSITION):MAG.
@@ -164,20 +161,15 @@ FUNCTION Approach {
         IF minDistance < 2 {
             SET minDistance TO 0.
         }
-    
+
         LOCAL dynamicSpeed IS SQRT(minDistance) * 1.5.
     
         SET speed_pid:SETPOINT TO dynamicSpeed.
         SET current_pitch TO -1 * speed_pid:UPDATE(TIME:SECONDS, SHIP:VELOCITY:SURFACE:MAG).
         SET current_throttle TO alt_pid:UPDATE(TIME:SECONDS, ALTITUDE).
-        
-        LOCAL currentPlanet IS SHIP:BODY.
-        LOCAL currentposition IS SHIP:GEOPOSITION.
 
-        IF TIME:SECONDS > dataUpdate + 1 {
-            printFlightData(currentWP, currentPlanet, currentPosition).
-            SET dataUpdate TO TIME:SECONDS.
-        }    
+        printFlightData(currentWP, currentPlanet, currentPosition).
+
         WAIT 0.1.
     }
     PRINT "Transitioning to Landing Mode.     " AT (0, 10).
@@ -252,7 +244,7 @@ FUNCTION executeScienceSequence {
 
 PRINT "Data transmission complete.           " AT (0, 12).
 
-FUNCTION printFlightData {
+FUNCTION printArrivalTime {
     PARAMETER currentWP, currentPlanet, currentPosition.
 
     LOCAL targetGeo IS currentWP:GEOPOSITION.
@@ -271,28 +263,14 @@ FUNCTION printFlightData {
     } ELSE {
         SET secString TO "N/A Drone Stopped.".
     }
-    IF ADDONS:SCANSAT:AVAILABLE {
-        LOCAL currentPlanet IS SHIP:BODY.
-        LOCAL currentPosition IS SHIP:GEOPOSITION.
-    } ELSE {
-        PRINT "SCANsat is not available." AT (0, 24).
-    }
 
-    UNTIL flightMode = "LANDED" {
-        LOCAL terrainElevation IS ADDONS:SCANSAT:ELEVATION(currentPlanet, currentPosition).
-        LOCAL terrainBiome IS ADDONS:SCANSAT:GETBIOME(currentPlanet, currentPosition).
-        LOCAL terrainSlope IS ADDONS:SCANSAT:SLOPE(currentPlanet, currentPosition).
-        
-        PRINT "=== NAVIGATION AND TELEMETRY ===" AT (0, 14).
+    UNTIL flightMode = "LANDED" {       
+        PRINT "=== NAVIGATION AND ARRIVAL DATA ===" AT (0, 14).
         PRINT " Planet: " + SHIP:BODY:NAME AT (0, 15).
-        PRINT " Coordinates: " + ROUND(currentPosition:LAT, 4) + ", " + ROUND(currentPosition:LNG, 4) AT (0, 16).
-        PRINT " Elevation: " + ROUND(terrainElevation, 2) + " m" AT (0, 17).
-        PRINT " Slope: " + ROUND(terrainSlope, 2) AT (0, 18).
-        PRINT " Biome: " + terrainBiome AT (0, 19).
         PRINT " Distance to Waypoint: " + ROUND(distance, 1) + "m      " AT (0, 20).
         PRINT " Current Ground Speed: " + ROUND(speed, 1) + "m/s    " AT (0, 21).
         PRINT " Estimated Arrival On: " + etaString + "           " AT (0, 22).
-        PRINT "================================" AT (0, 23).
+        PRINT "===================================" AT (0, 23).
     }
 }
 
