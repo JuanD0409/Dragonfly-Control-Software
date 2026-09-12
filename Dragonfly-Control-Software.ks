@@ -118,15 +118,22 @@ FUNCTION Cruise {
 
     PRINT "Target Altitude: " + targetAlt + "m" AT (0, 5).
 
-    UNTIL currentWP:GEOPOSITION:DISTANCE <= triggerDist {       
-        LOCAL currentPlanet IS SHIP:BODY.
-        LOCAL currentPosition IS SHIP:GEOPOSITION.
+    LOCAL currentPlanet IS SHIP:BODY.
+    LOCAL currentPosition IS SHIP:GEOPOSITION.
+    LOCAL terrainElevation IS ADDONS:SCANSAT:ELEVATION(currentPlanet, currentPosition).
+    LOCAL terrainSlope IS ADDONS:SCANSAT:SLOPE(currentPlanet, currentPosition).
+    LOCAL terrainBiome IS ADDONS:SCANSAT:GETBIOME(currentPlanet, currentPosition).
 
+    UNTIL currentWP:GEOPOSITION:DISTANCE <= triggerDist {       
+        
         SET targetHeading TO currentWP:GEOPOSITION:HEADING.
         SET current_pitch TO -1 * speed_pid:UPDATE(TIME:SECONDS, SHIP:VELOCITY:SURFACE:MAG).
         SET current_throttle TO alt_pid:UPDATE(TIME:SECONDS, ALTITUDE).
-
             
+        LOCAL terrainElevation IS ADDONS:SCANSAT:ELEVATION(currentPlanet, currentPosition).
+        LOCAL terrainSlope IS ADDONS:SCANSAT:SLOPE(currentPlanet, currentPosition).
+        LOCAL terrainBiome IS ADDONS:SCANSAT:GETBIOME(currentPlanet, currentPosition).
+        
         printFlightData(currentWP, currentPlanet, currentPosition).
 
         WAIT 0.1.
@@ -150,6 +157,9 @@ FUNCTION Approach {
 
     LOCAL currentPlanet IS SHIP:BODY.
     LOCAL currentposition IS SHIP:GEOPOSITION.
+    LOCAL terrainElevation IS ADDONS:SCANSAT:ELEVATION(currentPlanet, currentPosition).
+    LOCAL terrainSlope IS ADDONS:SCANSAT:SLOPE(currentPlanet, currentPosition).
+    LOCAL terrainBiome IS ADDONS:SCANSAT:GETBIOME(currentPlanet, currentPosition).
 
     UNTIL SHIP:VELOCITY:SURFACE:MAG < 5 {
         SET groundDistance TO VXCL(UP:VECTOR, currentWP:GEOPOSITION:POSITION):MAG.
@@ -167,6 +177,10 @@ FUNCTION Approach {
         SET speed_pid:SETPOINT TO dynamicSpeed.
         SET current_pitch TO -1 * speed_pid:UPDATE(TIME:SECONDS, SHIP:VELOCITY:SURFACE:MAG).
         SET current_throttle TO alt_pid:UPDATE(TIME:SECONDS, ALTITUDE).
+
+        LOCAL terrainElevation IS ADDONS:SCANSAT:ELEVATION(currentPlanet, currentPosition).
+        LOCAL terrainSlope IS ADDONS:SCANSAT:SLOPE(currentPlanet, currentPosition).
+        LOCAL terrainBiome IS ADDONS:SCANSAT:GETBIOME(currentPlanet, currentPosition).
 
         printFlightData(currentWP, currentPlanet, currentPosition).
 
@@ -244,7 +258,7 @@ FUNCTION executeScienceSequence {
 
 PRINT "Data transmission complete.           " AT (0, 12).
 
-FUNCTION printArrivalTime {
+FUNCTION printFlightData {
     PARAMETER currentWP, currentPlanet, currentPosition.
 
     LOCAL targetGeo IS currentWP:GEOPOSITION.
@@ -264,14 +278,21 @@ FUNCTION printArrivalTime {
         SET secString TO "N/A Drone Stopped.".
     }
 
-    UNTIL flightMode = "LANDED" {       
-        PRINT "=== NAVIGATION AND ARRIVAL DATA ===" AT (0, 14).
-        PRINT " Planet: " + SHIP:BODY:NAME AT (0, 15).
-        PRINT " Distance to Waypoint: " + ROUND(distance, 1) + "m      " AT (0, 20).
-        PRINT " Current Ground Speed: " + ROUND(speed, 1) + "m/s    " AT (0, 21).
-        PRINT " Estimated Arrival On: " + etaString + "           " AT (0, 22).
-        PRINT "===================================" AT (0, 23).
-    }
+    LOCAL terrainElevation IS ADDONS:SCANSAT:ELEVATION(currentPlanet, currentPosition).
+    LOCAL terrainSlope IS ADDONS:SCANSAT:SLOPE(currentPlanet, currentPosition).
+    LOCAL terrainBiome IS ADDONS:SCANSAT:GETBIOME(currentPlanet, currentPosition).
+
+    PRINT "=== NAVIGATION AND TELEMETRY DATA ===" AT (0, 14).
+    PRINT " Planet: " + SHIP:BODY:NAME AT (0, 15).
+    PRINT " Coordinates: " + ROUND(currentPosition:LAT, 2) + ", " + ROUND(currentPosition:LNG, 2) AT (0, 16).
+    PRINT " Elevation: " + terrainElevation AT (0, 17).
+    PRINT " Slope: " + ROUND(terrainSlope, 2) AT (0, 18).
+    PRINT " Biome: " + terrainBiome AT (0, 19).
+    PRINT " Distance to Waypoint: " + ROUND(distance, 1) + "m      " AT (0, 20).
+    PRINT " Current Ground Speed: " + ROUND(speed, 1) + "m/s    " AT (0, 21).
+    PRINT " Estimated Arrival On: " + etaString + "           " AT (0, 22).
+    PRINT "=====================================" AT (0, 23).
+
 }
 
 // End of script
