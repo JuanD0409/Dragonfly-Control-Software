@@ -120,9 +120,6 @@ FUNCTION Cruise {
 
     LOCAL currentPlanet IS SHIP:BODY.
     LOCAL currentPosition IS SHIP:GEOPOSITION.
-    LOCAL terrainElevation IS ADDONS:SCANSAT:ELEVATION(currentPlanet, currentPosition).
-    LOCAL terrainSlope IS ADDONS:SCANSAT:SLOPE(currentPlanet, currentPosition).
-    LOCAL terrainBiome IS ADDONS:SCANSAT:GETBIOME(currentPlanet, currentPosition).
 
     UNTIL currentWP:GEOPOSITION:DISTANCE <= triggerDist {       
         
@@ -130,9 +127,9 @@ FUNCTION Cruise {
         SET current_pitch TO -1 * speed_pid:UPDATE(TIME:SECONDS, SHIP:VELOCITY:SURFACE:MAG).
         SET current_throttle TO alt_pid:UPDATE(TIME:SECONDS, ALTITUDE).
             
-        LOCAL terrainElevation IS ADDONS:SCANSAT:ELEVATION(currentPlanet, currentPosition).
-        LOCAL terrainSlope IS ADDONS:SCANSAT:SLOPE(currentPlanet, currentPosition).
-        LOCAL terrainBiome IS ADDONS:SCANSAT:GETBIOME(currentPlanet, currentPosition).
+        SET terrainElevation TO ADDONS:SCANSAT:ELEVATION(currentPlanet, currentPosition).
+        SET terrainSlope TO ADDONS:SCANSAT:SLOPE(currentPlanet, currentPosition).
+        SET terrainBiome TO ADDONS:SCANSAT:GETBIOME(currentPlanet, currentPosition).
         
         printFlightData(currentWP, currentPlanet, currentPosition).
 
@@ -157,9 +154,6 @@ FUNCTION Approach {
 
     LOCAL currentPlanet IS SHIP:BODY.
     LOCAL currentposition IS SHIP:GEOPOSITION.
-    LOCAL terrainElevation IS ADDONS:SCANSAT:ELEVATION(currentPlanet, currentPosition).
-    LOCAL terrainSlope IS ADDONS:SCANSAT:SLOPE(currentPlanet, currentPosition).
-    LOCAL terrainBiome IS ADDONS:SCANSAT:GETBIOME(currentPlanet, currentPosition).
 
     UNTIL SHIP:VELOCITY:SURFACE:MAG < 5 {
         SET groundDistance TO VXCL(UP:VECTOR, currentWP:GEOPOSITION:POSITION):MAG.
@@ -178,9 +172,9 @@ FUNCTION Approach {
         SET current_pitch TO -1 * speed_pid:UPDATE(TIME:SECONDS, SHIP:VELOCITY:SURFACE:MAG).
         SET current_throttle TO alt_pid:UPDATE(TIME:SECONDS, ALTITUDE).
 
-        LOCAL terrainElevation IS ADDONS:SCANSAT:ELEVATION(currentPlanet, currentPosition).
-        LOCAL terrainSlope IS ADDONS:SCANSAT:SLOPE(currentPlanet, currentPosition).
-        LOCAL terrainBiome IS ADDONS:SCANSAT:GETBIOME(currentPlanet, currentPosition).
+        SET terrainElevation TO ADDONS:SCANSAT:ELEVATION(currentPlanet, currentPosition).
+        SET terrainSlope TO ADDONS:SCANSAT:SLOPE(currentPlanet, currentPosition).
+        SET terrainBiome TO ADDONS:SCANSAT:GETBIOME(currentPlanet, currentPosition).
 
         printFlightData(currentWP, currentPlanet, currentPosition).
 
@@ -265,6 +259,11 @@ FUNCTION printFlightData {
     LOCAL distance IS targetGeo:DISTANCE.
     LOCAL speed IS SHIP:VELOCITY:SURFACE:MAG.
     LOCAL etaString IS "".
+    LOCAL currentPlanet IS SHIP:BODY.
+    LOCAL currentPosition IS SHIP:GEOPOSITION.
+    LOCAL terrainElevation IS ADDONS:SCANSAT:ELEVATION(currentPlanet, currentPosition).
+    LOCAL terrainSlope IS ADDONS:SCANSAT:SLOPE(currentPlanet, currentPosition).
+    LOCAL terrainBiome IS ADDONS:SCANSAT:GETBIOME(currentPlanet, currentPosition).
     
     IF speed > 0.2 {
         LOCAL totalSeconds IS distance / speed.
@@ -278,15 +277,11 @@ FUNCTION printFlightData {
         SET secString TO "N/A Drone Stopped.".
     }
 
-    LOCAL terrainElevation IS ADDONS:SCANSAT:ELEVATION(currentPlanet, currentPosition).
-    LOCAL terrainSlope IS ADDONS:SCANSAT:SLOPE(currentPlanet, currentPosition).
-    LOCAL terrainBiome IS ADDONS:SCANSAT:GETBIOME(currentPlanet, currentPosition).
-
     PRINT "=== NAVIGATION AND TELEMETRY DATA ===" AT (0, 14).
     PRINT " Planet: " + SHIP:BODY:NAME AT (0, 15).
     PRINT " Coordinates: " + ROUND(currentPosition:LAT, 2) + ", " + ROUND(currentPosition:LNG, 2) AT (0, 16).
-    PRINT " Elevation: " + terrainElevation AT (0, 17).
-    PRINT " Slope: " + ROUND(terrainSlope, 2) AT (0, 18).
+    PRINT " Elevation: " + terrainElevation + "m" AT (0, 17).
+    PRINT " Slope: " + ROUND(terrainSlope, 2) + "%" AT (0, 18).
     PRINT " Biome: " + terrainBiome AT (0, 19).
     PRINT " Distance to Waypoint: " + ROUND(distance, 1) + "m      " AT (0, 20).
     PRINT " Current Ground Speed: " + ROUND(speed, 1) + "m/s    " AT (0, 21).
