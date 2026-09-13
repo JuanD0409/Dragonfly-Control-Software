@@ -89,7 +89,7 @@ FUNCTION Liftoff {
     LOCK THROTTLE TO 0.33.
 
     WAIT UNTIL ALT:RADAR >= 100.
-    PRINT "Transitioning to Cruise Mode.              " AT (0, 10).
+    PRINT "Transitioning to Cruise Mode.                    " AT (0, 10).
 }
 
 FUNCTION Cruise {
@@ -135,7 +135,7 @@ FUNCTION Cruise {
 
         WAIT 0.1.
     }
-    PRINT "Transitioning to Approach Mode.            " AT (0, 10).
+    PRINT "Transitioning to Approach Mode.                  " AT (0, 10).
 }
 
 FUNCTION Approach {
@@ -180,7 +180,7 @@ FUNCTION Approach {
 
         WAIT 0.1.
     }
-    PRINT "Transitioning to Landing Mode.             " AT (0, 10).
+    PRINT "Transitioning to Landing Mode.                   " AT (0, 10).
 }
 
 FUNCTION Land {
@@ -191,12 +191,22 @@ FUNCTION Land {
     LOCAL levelPitch IS VXCL(UP:VECTOR, SHIP:FACING:FOREVECTOR).
     LOCAL idleThrottle IS 0.15.
 
+    LOCAL currentPlanet IS SHIP:BODY.
+    LOCAL currentPosition IS SHIP:GEOPOSITION.
+    LOCAL terrainElevation IS ADDONS:SCANSAT:ELEVATION(currentPlanet, currentPosition).
+    LOCAL terrainSlope IS ADDONS:SCANSAT:SLOPE(currentPlanet, currentPosition).
+    LOCAL terrainBiome IS ADDONS:SCANSAT:GETBIOME(currentPlanet, currentPosition).
+
     LOCK STEERING TO LOOKDIRUP(levelPitch, UP:VECTOR).
     LOCK THROTTLE TO current_throttle.
 
     WAIT 0.1.
 
-    UNTIL SHIP:STATUS = "LANDED" {
+    UNTIL SHIP:STATUS = "LANDED" {       
+        IF terrainSlope <= 30 {
+            landingAbort().
+        }
+        
         LOCAL dynamicVS IS -1 * SQRT(ALT:RADAR) * 0.5.
 
         SET dynamicVS TO MIN(-1.0, dynamicVS).
@@ -206,12 +216,14 @@ FUNCTION Land {
 
         SET current_throttle TO MAX(idleThrottle, pidOutput).
 
+        printFlightData(currentWP, currentPlanet, currentPosition).
+
         WAIT 0.1.
     }
     LOCK THROTTLE TO 0.
     UNLOCK STEERING.
     UNLOCK THROTTLE.
-    PRINT "Touchdown Confirmed. Safely Landed.        " AT (0, 10).
+    PRINT "Touchdown Confirmed. Safely Landed.              " AT (0, 10).
 
     WAIT 3.
 }
@@ -308,7 +320,7 @@ FUNCTION landingAbort {
     LOCK THROTTLE TO current_throttle.
 
     PRINT "Flight Mode: LANDING ABORT" AT (0, 8).
-    PRINT "Landing Abort: Searching for stable ground." AT (0, 10).
+    PRINT "Landing Abort: Searching for stable ground.      " AT (0, 10).
 
     LOCAL abortState IS TRUE.
 
