@@ -84,16 +84,16 @@ UNTIL flightMode = "ARRIVED" {
 executeScienceSequence().
 
 FUNCTION Liftoff {
-    PRINT "Flight Mode: Liftoff " AT (0, 8).
+    PRINT "Flight Mode: Liftoff      " AT (0, 8).
     LOCK STEERING TO HEADING(currentWP:GEOPOSITION:HEADING, 0).
     LOCK THROTTLE TO 0.33.
 
     WAIT UNTIL ALT:RADAR >= 100.
-    PRINT "Transitioning to Cruise Mode.      " AT (0, 10).
+    PRINT "Transitioning to Cruise Mode.              " AT (0, 10).
 }
 
 FUNCTION Cruise {
-    PRINT "Flight Mode: Cruise  " AT (0, 8).
+    PRINT "Flight Mode: Cruise       " AT (0, 8).
     LOCAL targetHeading IS currentWP:GEOPOSITION:HEADING.
 
     SET alt_pid:SETPOINT TO targetAlt. // Target altitude above sea level.
@@ -135,11 +135,11 @@ FUNCTION Cruise {
 
         WAIT 0.1.
     }
-    PRINT "Transitioning to Approach Mode.    " AT (0, 10).
+    PRINT "Transitioning to Approach Mode.            " AT (0, 10).
 }
 
 FUNCTION Approach {
-    PRINT "Flight Mode: Approach" AT (0, 8).
+    PRINT "Flight Mode: Approach     " AT (0, 8).
     LOCAL targetHeading IS currentWP:GEOPOSITION:HEADING.
     SET alt_pid:SETPOINT TO targetAlt.
 
@@ -180,11 +180,11 @@ FUNCTION Approach {
 
         WAIT 0.1.
     }
-    PRINT "Transitioning to Landing Mode.     " AT (0, 10).
+    PRINT "Transitioning to Landing Mode.             " AT (0, 10).
 }
 
 FUNCTION Land {
-    PRINT "Flight Mode: Landing  " AT (0, 8).
+    PRINT "Flight Mode: Landing      " AT (0, 8).
     
     LOCAL targetHeading IS currentWP:GEOPOSITION:HEADING.
     LOCAL current_throttle IS THROTTLE.
@@ -211,7 +211,9 @@ FUNCTION Land {
     LOCK THROTTLE TO 0.
     UNLOCK STEERING.
     UNLOCK THROTTLE.
-    PRINT "Touchdown Confirmed. Safely Landed." AT (0, 10).
+    PRINT "Touchdown Confirmed. Safely Landed.        " AT (0, 10).
+
+    WAIT 3.
 }
 
 // Additional Functions
@@ -288,6 +290,46 @@ FUNCTION printFlightData {
     PRINT " Estimated Arrival On: " + etaString + "           " AT (0, 22).
     PRINT "=====================================" AT (0, 23).
 
+}
+
+FUNCTION landingAbort {
+    LOCAL lockedHeading IS SHIP:HEADING.
+    LOCAL abortPitch IS -15.
+    
+    LOCAL currentPlanet IS SHIP:BODY.
+    LOCAL currentPosition IS SHIP:GEOPOSITION.
+    LOCAL terrainElevation IS ADDONS:SCANSAT:ELEVATION(currentPlanet, currentPosition).
+    LOCAL terrainSlope IS ADDONS:SCANSAT:SLOPE(currentPlanet, currentPosition).
+    LOCAL terrainBiome IS ADDONS:SCANSAT:GETBIOME(currentPlanet, currentPosition).
+
+    SET alt_pid:SETPOINT TO 100.
+
+    LOCK STEERING TO HEADING(lockedHeading, abortPitch).
+    LOCK THROTTLE TO current_throttle.
+
+    PRINT "Flight Mode: LANDING ABORT" AT (0, 8).
+    PRINT "Landing Abort: Searching for stable ground." AT (0, 10).
+
+    LOCAL abortState IS TRUE.
+
+    UNTIL abortState = FALSE {
+        SET terrainElevation TO ADDONS:SCANSAT:ELEVATION(currentPlanet, currentPosition).
+        SET terrainSlope TO ADDONS:SCANSAT:SLOPE(currentPlanet, currentPosition).
+        SET terrainBiome TO ADDONS:SCANSAT:GETBIOME(currentPlanet, currentPosition).
+
+        IF terrainSlope <= 30 {
+            SET abortState TO FALSE.
+        }
+
+        printFlightData(currentWP, currentPlanet, currentPosition).
+
+        LOCAL rawThrottle IS alt_pid:UPDATE(TIME:SECONDS, ALT:RADAR).
+        SET current_throttle TO MAX(0.15, rawThrottle).
+        LOCK THROTTLE TO current_throttle.
+
+        WAIT 0.1.
+    }
+    PRINT "Stable ground located. Returning to Landing Mode." AT (0, 10).
 }
 
 // End of script
