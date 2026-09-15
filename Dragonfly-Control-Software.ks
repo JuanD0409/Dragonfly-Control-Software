@@ -338,8 +338,6 @@ FUNCTION stabilityCheck {
     IF abortLanding = TRUE {
         PRINT "Flight Mode: EMERGENCY TAKEOFF" AT (0, 8).
         PRINT "UNSTABLE GROUND DETECTED. EMERGENCY TAKEOFF" AT (0, 10).
-        
-        WAIT 0.5.
 
         landingAbort().
     } ELSE {
@@ -360,7 +358,7 @@ FUNCTION landingAbort {
 
     SET alt_pid:SETPOINT TO 50.
 
-    PRINT "Ascending to a safe altitude.              " AT (0, 10).
+    PRINT "Ascending to a safe altitude.         " AT (0, 12).
 
     LOCAL currentPlanet IS SHIP:BODY.
     LOCAL currentPosition IS SHIP:GEOPOSITION.
