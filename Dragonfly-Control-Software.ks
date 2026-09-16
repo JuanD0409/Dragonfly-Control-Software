@@ -7,7 +7,7 @@ GLOBAL flightMode IS "LIFTOFF".
 // PID Controllers
 GLOBAL alt_pid IS PIDLOOP(0.05, 0.005, 0.1, 0, 1).
 GLOBAL vs_pid IS PIDLOOP (0.1, 0.01, 0.05, 0, 1).
-GLOBAL speed_pid IS PIDLOOP (0.5, 0.1, 0.25, 0, 45).
+GLOBAL speed_pid IS PIDLOOP (2.0, 0.01, 0.5, -15, 45).
 
 PRINT "Dragonfly Control Software Initiated.".
 WAIT 3.
@@ -95,15 +95,12 @@ FUNCTION Liftoff {
 FUNCTION Cruise {
     PRINT "Flight Mode: Cruise           " AT (0, 8).
     LOCAL targetHeading IS currentWP:GEOPOSITION:HEADING.
+    LOCAL cruiseSpeed IS 40.
 
     SET alt_pid:SETPOINT TO targetAlt. // Target altitude above sea level.
-    SET speed_pid:SETPOINT TO 50. // Target forward speed in m/s.
+    SET speed_pid:SETPOINT TO 45.
 
-    LOCAL current_throttle IS 1.0.
-    LOCAL current_pitch IS 0.
-
-    LOCK STEERING TO HEADING(targetHeading, current_Pitch).
-    LOCK THROTTLE TO current_throttle.
+    LOCAL rawThrottle IS 1.0.
 
     // Approach Mode Activation Variables
     LOCAL gravity IS BODY:MU / BODY:RADIUS^2.
@@ -121,11 +118,30 @@ FUNCTION Cruise {
     LOCAL currentPlanet IS SHIP:BODY.
     LOCAL currentPosition IS SHIP:GEOPOSITION.
 
-    UNTIL currentWP:GEOPOSITION:DISTANCE <= triggerDist {       
-        
+    UNTIL currentWP:GEOPOSITION:DISTANCE <= triggerDist {
+        LOCAL horizontalVelocity IS VXCL(UP:VECTOR, SHIP:VELOCITY:SURFACE).
+        LOCAL facingVector IS HEADING(horizontalVelocity, facingVector).
+        LOCAL forwardSpeed IS VDOT(horizontalVelocity, facingVector).
+        LOCAL speedError IS cruiseSpeed - forwardSpeed.
+        LOCAL basePitch IS -1 * (targetSpeed / 3).
+        LOCAL rawPitch IS 0.
+        LOCAL cruisePitch IS MIN(15, MAX(-30, rawPitch)).
+
+        IF speedError > 0.5 {
+            SET rawPitch TO basePitch - (SQRT(speedError) * 3.5).           
+        }
+        ELSE IF speedError < -0.5 {
+            SET rawPitch TO SQRT(ABS(speedError)) * 4.5.
+        }
+        ELSE {
+            SET rawPitch TO basePitch.
+        }
+
         SET targetHeading TO currentWP:GEOPOSITION:HEADING.
-        SET current_pitch TO -1 * speed_pid:UPDATE(TIME:SECONDS, SHIP:VELOCITY:SURFACE:MAG).
-        SET current_throttle TO alt_pid:UPDATE(TIME:SECONDS, ALTITUDE).
+        SET rawThrottle TO alt_pid:UPDATE(TIME:SECONDS, ALTITUDE).
+
+        LOCK STEERING TO HEADING(targetHeading, cruisePitch).
+        LOCK THROTTLE TO MAX(0.25, rawThrottle).
             
         SET terrainElevation TO ADDONS:SCANSAT:ELEVATION(currentPlanet, currentPosition).
         SET terrainSlope TO ADDONS:SCANSAT:SLOPE(currentPlanet, currentPosition).
@@ -143,14 +159,14 @@ FUNCTION Approach {
     LOCAL targetHeading IS currentWP:GEOPOSITION:HEADING.
     SET alt_pid:SETPOINT TO targetAlt.
 
-    LOCAL current_throttle IS 1.0.
+    LOCAL rawThrottle IS 1.0.
     LOCAL current_pitch IS 0.
     LOCAL groundDistance IS VXCL(UP:VECTOR, currentWP:GEOPOSITION:POSITION):MAG.
     
     LOCAL minDistance IS groundDistance.
 
     LOCK STEERING TO HEADING(targetHeading, current_pitch).
-    LOCK THROTTLE TO current_throttle.
+    LOCK THROTTLE TO rawThrottle.
 
     LOCAL currentPlanet IS SHIP:BODY.
     LOCAL currentposition IS SHIP:GEOPOSITION.
@@ -170,7 +186,7 @@ FUNCTION Approach {
     
         SET speed_pid:SETPOINT TO dynamicSpeed.
         SET current_pitch TO -1 * speed_pid:UPDATE(TIME:SECONDS, SHIP:VELOCITY:SURFACE:MAG).
-        SET current_throttle TO alt_pid:UPDATE(TIME:SECONDS, ALTITUDE).
+        SET rawThrottle TO alt_pid:UPDATE(TIME:SECONDS, ALTITUDE).
 
         SET terrainElevation TO ADDONS:SCANSAT:ELEVATION(currentPlanet, currentPosition).
         SET terrainSlope TO ADDONS:SCANSAT:SLOPE(currentPlanet, currentPosition).
@@ -186,38 +202,42 @@ FUNCTION Approach {
 FUNCTION Land {
     PRINT "Flight Mode: Landing          " AT (0, 8).
     
-    LOCAL targetHeading IS currentWP:GEOPOSITION:HEADING.
-    LOCAL current_throttle IS THROTTLE.
-    LOCAL levelPitch IS VXCL(UP:VECTOR, SHIP:FACING:FOREVECTOR).
-    LOCAL idleThrottle IS 0.15.
-
+    LOCAL lockedHeading IS MOD(360 - LATLNG(90, 0):BEARING, 360).
+    
     LOCAL currentPlanet IS SHIP:BODY.
     LOCAL currentPosition IS SHIP:GEOPOSITION.
     LOCAL terrainElevation IS ADDONS:SCANSAT:ELEVATION(currentPlanet, currentPosition).
     LOCAL terrainSlope IS ADDONS:SCANSAT:SLOPE(currentPlanet, currentPosition).
     LOCAL terrainBiome IS ADDONS:SCANSAT:GETBIOME(currentPlanet, currentPosition).
 
-    LOCK STEERING TO LOOKDIRUP(levelPitch, UP:VECTOR).
-    LOCK THROTTLE TO current_throttle.
+    speed_pid:RESET().
+    SET speed_pid:SETPOINT TO 0.
+    vs_pid:RESET().
 
-    WAIT 0.1.
+    UNTIL SHIP:STATUS = "LANDED" {
+        LOCAL horizontalVelocity IS VXCL(UP:VECTOR, SHIP:VELOCITY:SURFACE).
+        LOCAL facingVector IS HEADING(lockedHeading, 0):FOREVECTOR.
+        LOCAL forwardSpeed IS VDOT(horizontalVelocity, facingVector).
+        LOCAL rawPitch IS -1 * speed_pid:UPDATE(TIME:SECONDS, forwardSpeed).
+        LOCAL brakePitch IS MIN(15, MAX(-15, rawPitch)).
+        LOCAL targetVS IS -1 * MAX(0.25, MIN(3.5, 0.7 * SQRT(ALT:RADAR))).
+        LOCAL rawThrottle IS vs_pid:UPDATE(TIME:SECONDS, SHIP:VERTICALSPEED).
 
-    UNTIL SHIP:STATUS = "LANDED" {        
-      
-        LOCAL dynamicVS IS -1 * SQRT(ALT:RADAR) * 0.5.
+        IF ABS(forwardSpeed) < 0.25 {
+            SET rawPitch TO 0.
+            speed_pid:RESET().
+        }
 
-        SET dynamicVS TO MIN(-1.0, dynamicVS).
-        SET vs_pid:SETPOINT TO dynamicVS.
+        LOCK STEERING TO HEADING(lockedHeading, brakePitch).
+        LOCK THROTTLE TO MAX(0.15, rawThrottle).
 
-        LOCAL pidOutput IS vs_pid:UPDATE(TIME:SECONDS, SHIP:VERTICALSPEED).
-
-        SET current_throttle TO MAX(idleThrottle, pidOutput).
+        SET vs_pid:SETPOINT TO targetVS.
 
         SET terrainElevation TO ADDONS:SCANSAT:ELEVATION(currentPlanet, currentPosition).
         SET terrainSlope TO ADDONS:SCANSAT:SLOPE(currentPlanet, currentPosition).
         SET terrainBiome TO ADDONS:SCANSAT:GETBIOME(currentPlanet, currentPosition).
             
-         printFlightData(currentWP, currentPlanet, currentPosition).
+        printFlightData(currentWP, currentPlanet, currentPosition).
 
         WAIT 0.1.
     }    
