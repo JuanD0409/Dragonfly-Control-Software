@@ -7,7 +7,7 @@ GLOBAL flightMode IS "LIFTOFF".
 // PID Controllers
 GLOBAL alt_pid IS PIDLOOP(0.05, 0.005, 0.1, 0, 1).
 GLOBAL vs_pid IS PIDLOOP (0.1, 0.01, 0.05, 0, 1).
-GLOBAL speed_pid IS PIDLOOP (2.0, 0.01, 0.5, -15, 45).
+GLOBAL speed_pid IS PIDLOOP (0.8, 0.005, 0.3, -15, 45).
 
 PRINT "Dragonfly Control Software Initiated.".
 WAIT 3.
@@ -96,6 +96,8 @@ FUNCTION Cruise {
     PRINT "Flight Mode: Cruise           " AT (0, 8).
     LOCAL targetHeading IS currentWP:GEOPOSITION:HEADING.
     LOCAL cruiseSpeed IS 40.
+    LOCAL cruisePitch IS 0.
+    LOCAL pitchSmoothing IS 0.075.
 
     SET alt_pid:SETPOINT TO targetAlt. // Target altitude above sea level.
     SET speed_pid:SETPOINT TO 45.
@@ -103,45 +105,54 @@ FUNCTION Cruise {
     LOCAL rawThrottle IS 1.0.
 
     // Approach Mode Activation Variables
-    LOCAL gravity IS BODY:MU / BODY:RADIUS^2.
-    LOCAL maxPitch IS 45.
-    LOCAL craftBrake IS gravity * TAN(maxPitch).
-    LOCAL aeroBrake IS 3.0. // Adjust this number based on current planet's atmospheric density.
-    LOCAL totalBrake IS craftBrake + aeroBrake.
-    LOCAL targetSpeed IS speed_pid:SETPOINT.
-    LOCAL brakeDist IS (targetSpeed^2) / (2 * totalBrake).
-    LOCAL approachDist IS brakeDist * 1.2.
-    LOCAL triggerDist IS SQRT(targetAlt^2 + approachDist^2).
+    LOCAL maxPitchDown IS -45.
+    LOCAL maxPitchUp IS 15.
+    LOCAL descentAngle IS 45.
+    LOCAL horizontalDistance IS targetAlt / TAN(descentAngle).
+    LOCAL triggerDist IS SQRT(targetAlt^2 + horizontalDistance^2).
 
     PRINT "Target Altitude: " + targetAlt + "m" AT (0, 5).
 
+    LOCAL cruiseStart IS TIME:SECONDS.
+    LOCAL pitchDuration IS 20.
+    LOCAL maxPitchRate IS 5.
+
+    speed_pid:RESET().
+    SET speed_pid:SETPOINT TO 0.
+    
     LOCAL currentPlanet IS SHIP:BODY.
     LOCAL currentPosition IS SHIP:GEOPOSITION.
 
     UNTIL currentWP:GEOPOSITION:DISTANCE <= triggerDist {
         LOCAL horizontalVelocity IS VXCL(UP:VECTOR, SHIP:VELOCITY:SURFACE).
-        LOCAL facingVector IS HEADING(horizontalVelocity, facingVector).
+        LOCAL facingVector IS HEADING(targetHeading, 0):FOREVECTOR.
         LOCAL forwardSpeed IS VDOT(horizontalVelocity, facingVector).
-        LOCAL speedError IS cruiseSpeed - forwardSpeed.
-        LOCAL basePitch IS -1 * (targetSpeed / 3).
-        LOCAL rawPitch IS 0.
-        LOCAL cruisePitch IS MIN(15, MAX(-30, rawPitch)).
+        LOCAL pitchTime IS MIN(pitchDuration, TIME:SECONDS - cruiseStart).
+        LOCAL pitchSpeed IS cruiseSpeed * SQRT(pitchTime / pitchDuration).
 
-        IF speedError > 0.5 {
-            SET rawPitch TO basePitch - (SQRT(speedError) * 3.5).           
+        SET speed_pid:SETPOINT TO pitchSpeed.
+
+        LOCAL targetPitch IS -1 * speed_pid:UPDATE(TIME:SECONDS, forwardSpeed).
+        LOCAL maxDelta IS maxPitchRate * 0.1.
+
+        IF targetPitch > cruisePitch {
+            SET cruisePitch TO MIN(cruisePitch + maxDelta, targetPitch).
+        } ELSE {
+            SET cruisePitch TO MAX(cruisePitch - maxDelta, targetPitch).
         }
-        ELSE IF speedError < -0.5 {
-            SET rawPitch TO SQRT(ABS(speedError)) * 4.5.
+        
+        IF cruisePitch < maxPitchDown {
+            SET cruisePitch TO maxPitchDown.
         }
-        ELSE {
-            SET rawPitch TO basePitch.
+        ELSE IF cruisePitch > maxPitchUp {
+           SET cruisePitch TO maxPitchUp. 
         }
 
         SET targetHeading TO currentWP:GEOPOSITION:HEADING.
         SET rawThrottle TO alt_pid:UPDATE(TIME:SECONDS, ALTITUDE).
 
         LOCK STEERING TO HEADING(targetHeading, cruisePitch).
-        LOCK THROTTLE TO MAX(0.25, rawThrottle).
+        LOCK THROTTLE TO MAX(0.20, rawThrottle).
             
         SET terrainElevation TO ADDONS:SCANSAT:ELEVATION(currentPlanet, currentPosition).
         SET terrainSlope TO ADDONS:SCANSAT:SLOPE(currentPlanet, currentPosition).
@@ -157,13 +168,21 @@ FUNCTION Cruise {
 FUNCTION Approach {
     PRINT "Flight Mode: Approach         " AT (0, 8).
     LOCAL targetHeading IS currentWP:GEOPOSITION:HEADING.
-    SET alt_pid:SETPOINT TO targetAlt.
 
     LOCAL rawThrottle IS 1.0.
-    LOCAL current_pitch IS 0.
-    LOCAL groundDistance IS VXCL(UP:VECTOR, currentWP:GEOPOSITION:POSITION):MAG.
-    
-    LOCAL minDistance IS groundDistance.
+    LOCAL idleThrottle IS 0.1.
+    LOCAL maxThrottle IS 0.375.
+    LOCAL current_pitch IS -30.
+    LOCAL maxPitchDown IS -45.
+    LOCAL maxPitchUp IS 15.
+    LOCAL maxPitchRate IS 5.
+    LOCAL groundDistance IS currentWP:GEOPOSITION:DISTANCE.
+    LOCAL horizontalDistance IS SQRT(MAX(0, groundDistance^2 - ALTITUDE^2)).
+    LOCAL minDistance IS horizontalDistance.
+    LOCAL minApproachAlt IS 50.
+    LOCAL descentAngle IS 45.
+
+    speed_pid:RESET().
 
     LOCK STEERING TO HEADING(targetHeading, current_pitch).
     LOCK THROTTLE TO rawThrottle.
@@ -172,21 +191,46 @@ FUNCTION Approach {
     LOCAL currentposition IS SHIP:GEOPOSITION.
 
     UNTIL SHIP:VELOCITY:SURFACE:MAG < 5 {
-        SET groundDistance TO VXCL(UP:VECTOR, currentWP:GEOPOSITION:POSITION):MAG.
+        SET groundDistance TO currentWP:GEOPOSITION:DISTANCE.
+        SET horizontalDistance TO SQRT(MAX(0, groundDistance^2 - ALTITUDE^2)).
     
-        IF groundDistance < minDistance {
-            SET minDistance TO groundDistance.
+        IF horizontalDistance < minDistance {
+            SET minDistance TO horizontalDistance.
         }
     
         IF minDistance < 2 {
             SET minDistance TO 0.
         }
 
-        LOCAL dynamicSpeed IS SQRT(minDistance) * 1.5.
+        LOCAL descentAlt IS MAX(minApproachAlt, horizontalDistance / TAN(descentAngle)).
+        SET alt_pid:SETPOINT TO MIN(targetAlt, descentAlt).
+        
+        LOCAL dynamicSpeed IS SQRT(minDistance) * 0.75.
     
         SET speed_pid:SETPOINT TO dynamicSpeed.
-        SET current_pitch TO -1 * speed_pid:UPDATE(TIME:SECONDS, SHIP:VELOCITY:SURFACE:MAG).
+
+        LOCAL targetPitch IS -1 * speed_pid:UPDATE(TIME:SECONDS, SHIP:VELOCITY:SURFACE:MAG).
+        LOCAL maxDelta IS maxPitchRate * 0.1.
+
+        IF targetPitch > current_pitch {
+            SET current_pitch TO MIN(current_pitch + maxDelta, targetPitch).
+        } ELSE {
+            SET current_pitch TO MAX(current_pitch - maxDelta, targetPitch).
+        }
+
+        IF current_pitch < maxPitchDown {
+            SET current_pitch TO maxPitchDown.
+        } 
+        ELSE IF current_pitch > maxPitchUp {
+            SET current_pitch TO maxPitchUp.
+        }
+        
         SET rawThrottle TO alt_pid:UPDATE(TIME:SECONDS, ALTITUDE).
+
+        LOCAL descentFactor IS MAX(0, MIN(1, -current_pitch / ABS(maxPitchDown))).
+        LOCAL brakeThrottle IS maxThrottle -descentFactor * (maxThrottle - idleThrottle).
+        
+        LOCK THROTTLE TO MAX(brakeThrottle, rawThrottle).
 
         SET terrainElevation TO ADDONS:SCANSAT:ELEVATION(currentPlanet, currentPosition).
         SET terrainSlope TO ADDONS:SCANSAT:SLOPE(currentPlanet, currentPosition).
@@ -220,7 +264,7 @@ FUNCTION Land {
         LOCAL forwardSpeed IS VDOT(horizontalVelocity, facingVector).
         LOCAL rawPitch IS -1 * speed_pid:UPDATE(TIME:SECONDS, forwardSpeed).
         LOCAL brakePitch IS MIN(15, MAX(-15, rawPitch)).
-        LOCAL targetVS IS -1 * MAX(0.25, MIN(3.5, 0.7 * SQRT(ALT:RADAR))).
+        LOCAL targetVS IS -1 * MAX(0.5, MIN(3.5, 0.7 * SQRT(ALT:RADAR))).
         LOCAL rawThrottle IS vs_pid:UPDATE(TIME:SECONDS, SHIP:VERTICALSPEED).
 
         IF ABS(forwardSpeed) < 0.25 {
@@ -376,7 +420,7 @@ FUNCTION landingAbort {
     LOCK STEERING TO HEADING(lockedHeading, 0).
     LOCK THROTTLE TO 1.0.
 
-    SET alt_pid:SETPOINT TO 50.
+    SET alt_pid:SETPOINT TO 100.
 
     PRINT "Ascending to a safe altitude.         " AT (0, 12).
 
