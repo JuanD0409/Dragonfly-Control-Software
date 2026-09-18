@@ -190,7 +190,7 @@ FUNCTION Approach {
     LOCAL currentPlanet IS SHIP:BODY.
     LOCAL currentposition IS SHIP:GEOPOSITION.
 
-    UNTIL SHIP:VELOCITY:SURFACE:MAG < 5 {
+    UNTIL ALT:RADAR < 100 {
         SET groundDistance TO currentWP:GEOPOSITION:DISTANCE.
         SET horizontalDistance TO SQRT(MAX(0, groundDistance^2 - ALTITUDE^2)).
     
