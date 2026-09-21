@@ -98,6 +98,7 @@ FUNCTION Cruise {
     LOCAL cruiseSpeed IS 40.
     LOCAL cruisePitch IS 0.
     LOCAL pitchSmoothing IS 0.075.
+    LOCAL altitudeRange IS 5.
 
     SET speed_pid:SETPOINT TO 45.
 
@@ -122,7 +123,7 @@ FUNCTION Cruise {
     LOCAL currentPlanet IS SHIP:BODY.
     LOCAL currentPosition IS SHIP:GEOPOSITION.
 
-    UNTIL currentWP:GEOPOSITION:DISTANCE <= triggerDist {
+    UNTIL currentWP:GEOPOSITION:DISTANCE <= triggerDist AND SHIP:ALTITUDE >= targetAlt - altitudeRange {
         LOCAL horizontalVelocity IS VXCL(UP:VECTOR, SHIP:VELOCITY:SURFACE).
         LOCAL facingVector IS HEADING(targetHeading, 0):FOREVECTOR.
         LOCAL forwardSpeed IS VDOT(horizontalVelocity, facingVector).
