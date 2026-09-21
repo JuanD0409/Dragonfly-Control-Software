@@ -99,7 +99,6 @@ FUNCTION Cruise {
     LOCAL cruisePitch IS 0.
     LOCAL pitchSmoothing IS 0.075.
 
-    SET alt_pid:SETPOINT TO targetAlt. // Target altitude above sea level.
     SET speed_pid:SETPOINT TO 45.
 
     LOCAL rawThrottle IS 1.0.
@@ -130,6 +129,7 @@ FUNCTION Cruise {
         LOCAL pitchTime IS MIN(pitchDuration, TIME:SECONDS - cruiseStart).
         LOCAL pitchSpeed IS cruiseSpeed * SQRT(pitchTime / pitchDuration).
 
+        SET alt_pid:SETPOINT TO targetAlt. // Target altitude above sea level.
         SET speed_pid:SETPOINT TO pitchSpeed.
 
         LOCAL targetPitch IS -1 * speed_pid:UPDATE(TIME:SECONDS, forwardSpeed).
@@ -153,6 +153,8 @@ FUNCTION Cruise {
 
         LOCK STEERING TO HEADING(targetHeading, cruisePitch).
         LOCK THROTTLE TO MAX(0.20, rawThrottle).
+
+        altitudeCheck().
             
         SET terrainElevation TO ADDONS:SCANSAT:ELEVATION(currentPlanet, currentPosition).
         SET terrainSlope TO ADDONS:SCANSAT:SLOPE(currentPlanet, currentPosition).
@@ -183,12 +185,10 @@ FUNCTION Approach {
     LOCAL descentAngle IS 45.
 
     speed_pid:RESET().
-
-    LOCK STEERING TO HEADING(targetHeading, current_pitch).
-    LOCK THROTTLE TO rawThrottle.
+    SET speed_pid:SETPOINT TO 30.
 
     LOCAL currentPlanet IS SHIP:BODY.
-    LOCAL currentposition IS SHIP:GEOPOSITION.
+    LOCAL currentPosition IS SHIP:GEOPOSITION.
 
     UNTIL ALT:RADAR < 100 {
         SET groundDistance TO currentWP:GEOPOSITION:DISTANCE.
@@ -230,6 +230,7 @@ FUNCTION Approach {
         LOCAL descentFactor IS MAX(0, MIN(1, -current_pitch / ABS(maxPitchDown))).
         LOCAL brakeThrottle IS maxThrottle -descentFactor * (maxThrottle - idleThrottle).
         
+        LOCK STEERING TO HEADING(targetHeading, current_pitch).
         LOCK THROTTLE TO MAX(brakeThrottle, rawThrottle).
 
         SET terrainElevation TO ADDONS:SCANSAT:ELEVATION(currentPlanet, currentPosition).
@@ -449,6 +450,52 @@ FUNCTION landingAbort {
     WAIT 1.
 
     Land().
+}
+
+FUNCTION altitudeCheck {
+    LOCAL safeAltitude IS 500.
+    LOCAL targetHeading IS currentWP:GEOPOSITION:HEADING.
+    LOCAL altitudeRange IS 5.
+    LOCAL current_pitch IS -45.
+    LOCAL isManeuvering IS FALSE.
+    
+    LOCAL currentPlanet IS SHIP:BODY.
+    LOCAL currentPosition IS SHIP:GEOPOSITION.
+    LOCAL terrainElevation IS ADDONS:SCANSAT:ELEVATION(currentPlanet, currentPosition).
+    LOCAL terrainSlope IS ADDONS:SCANSAT:SLOPE(currentPlanet, currentPosition).
+    LOCAL terrainBiome IS ADDONS:SCANSAT:GETBIOME(currentPlanet, currentPosition).
+
+    IF ALT:RADAR < safeAltitude {
+        IF SHIP:ALTITUDE <= targetAlt + altitudeRange AND SHIP:ALTITUDE >= targetAlt - altitudeRange {
+            SET isManeuvering TO TRUE.
+            PRINT "Unsafe altitude detected. Ascending.  " AT (0, 12).
+            
+            UNTIL isManeuvering = FALSE {
+                LOCAL rawThrottle IS alt_pid:UPDATE(TIME:SECONDS, ALT:RADAR).
+
+                SET alt_pid:SETPOINT TO 500.
+                
+                LOCK STEERING TO HEADING(targetHeading, current_pitch).
+                LOCK THROTTLE TO MAX(0.15, rawThrottle).
+
+                IF ALT:RADAR <= safeAltitude + altitudeRange AND ALT:RADAR >= safeAltitude - altitudeRange {
+                    IF SHIP:ALTITUDE <= targetAlt + altitudeRange AND SHIP:ALTITUDE >= targetAlt - altitudeRange {
+                        SET isManeuvering TO FALSE.
+                    }
+                }
+
+                SET terrainElevation TO ADDONS:SCANSAT:ELEVATION(currentPlanet, currentPosition).
+                SET terrainSlope TO ADDONS:SCANSAT:SLOPE(currentPlanet, currentPosition).
+                SET terrainBiome TO ADDONS:SCANSAT:GETBIOME(currentPlanet, currentPosition).
+
+                printFlightData(currentWP, currentPlanet, currentPosition).
+
+                WAIT 0.1.
+            }            
+        }
+    }
+
+    PRINT "Dragonfly is within safe altitude.    " AT (0, 12).
 }
 
 // End of script
