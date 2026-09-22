@@ -186,7 +186,7 @@ FUNCTION Approach {
     LOCAL descentAngle IS 45.
 
     speed_pid:RESET().
-    SET speed_pid:SETPOINT TO 30.
+    SET speed_pid:SETPOINT TO -30.
 
     LOCAL currentPlanet IS SHIP:BODY.
     LOCAL currentPosition IS SHIP:GEOPOSITION.
