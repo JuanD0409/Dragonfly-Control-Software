@@ -17,7 +17,7 @@ LOCAL altString IS "".
 PRINT "Enter your target altitude in meters: " AT (0, 1). // Prompts the user to enter its target altitude.
 
 UNTIL FALSE {
-    LOCAL enterAlt IS TERMINAL:INPUT:GETCHAR().
+    LOCAL enterAlt IS TERMINAL:INPUT:GETCHAR(). // Captures the user's input for target altitude.
 
     IF enterAlt = TERMINAL:INPUT:ENTER {
         BREAK.
@@ -38,7 +38,7 @@ UNTIL FALSE {
 GLOBAL targetAlt IS altString:TONUMBER(500). // Defaults to 500 meters if a letter is accidentally entered.
 
 // Waypoint Search Function
-LOCAL wpList IS LIST().
+LOCAL wpList IS LIST(). // Creates a list of all found waypoints on the drone's current planet.
 FOR wp IN ALLWAYPOINTS() {
     IF wp:BODY = SHIP:BODY {
         wpList:ADD(wp).
@@ -111,7 +111,7 @@ UNTIL flightMode = "ARRIVED" {
 executeScienceSequence(). // Activates the scientific analysis sequence once drone is landed.
 
 // Flight Control Functions
-// DISCLAIMER: DO NOT TOUCH UNLESS YOU KNOW WHAT YOU'RE DOING.
+// DISCLAIMER: DO NOT MODIFY OR DELETE UNLESS YOU KNOW WHAT YOU'RE DOING.
 
 FUNCTION Liftoff {
     PRINT "Flight Mode: Liftoff          " AT (0, 6).
@@ -151,6 +151,7 @@ FUNCTION Cruise {
     LOCAL currentPlanet IS SHIP:BODY.
     LOCAL currentPosition IS SHIP:GEOPOSITION.
 
+    // Safety net designed to not allow the drone to start aprroaching if it has not reached its target altitude.
     UNTIL currentWP:GEOPOSITION:DISTANCE <= triggerDist AND SHIP:ALTITUDE >= targetAlt - altitudeRange {
         LOCAL horizontalVelocity IS VXCL(UP:VECTOR, SHIP:VELOCITY:SURFACE).
         LOCAL facingVector IS HEADING(targetHeading, 0):FOREVECTOR.
@@ -220,6 +221,7 @@ FUNCTION Approach {
     LOCAL currentPlanet IS SHIP:BODY.
     LOCAL currentPosition IS SHIP:GEOPOSITION.
 
+    // Activates the Land Function once drone has descended to 100 meters over ground level.
     UNTIL ALT:RADAR < 100 {
         SET groundDistance TO currentWP:GEOPOSITION:DISTANCE.
         SET horizontalDistance TO SQRT(MAX(0, groundDistance^2 - ALTITUDE^2)).
