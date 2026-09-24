@@ -1,9 +1,21 @@
 # Dragonfly-Control-Software
 A program written in KerboScript to control a drone in Kerbal Space Program based on NASA's Dragonfly mission.
 
+<img width="1035" height="580" alt="Dragonfly_Screenshot" src="https://github.com/user-attachments/assets/1ad9f0c5-8741-4003-b674-531c6ad43f44" />
+
+Image of the Dragonfly replica.
+
+The demo is a Youtube video showing the script controlling autonomously the Dragonfly replica in KSP.
+
+Note: a "normal" demo is not possible since the KerboScript language cannot be run outside of KSP.
+
+See it in action:
+
+[![Youtube](https://img.shields.io/badge/YouTube-FF0000?style=for-the-badge&logo=youtube&logoColor=white)](https://www.youtube.com/watch?v=TBGFOX5xo8Q)
+
 ## Quick Start Guide
 1. Copy the code on the "Dragonfly-Control-Software.ks" file.
-2. Open the kOS Terminal and type the command "EDIT drone.script.". A window with the name "drone.script" should appear below the terminal; paste the code there and save it.
+2. Open the kOS Terminal and type the command "edit drone.script.". A window with the name "drone.script" should appear below the terminal; paste the code there and save it.
 3. Run the code and follow the prompts that appear on the terminal, the drone will then operate on its own.
 
 ## Features
@@ -50,8 +62,8 @@ Note: KerboScript compatibility is integrated with any kOS version.
 
 ### Local Deployment Guide
 1. While controlling the drone you want to automate, follow the Quick Start Guide.
-2. Type the command "RUN drone.script(desired altitude)." in the kOS terminal and follow any prompt. Type the desired altitude for the drone to reach between the parentheses. If the user does not enter the desired altitude within the parentheses, kOS will throw an error in terminal explaining that the code has not the expected amount of arguments to run correctly. 
-3. Select the waypoint you want your drone to reach. If there are no waypoints, an error message will appear on the terminal explaining that at least one waypoint is required to run. Otherwise, the code will not run since the navigation control functionality will not be able to operate adequately.
+2. Type the command "run drone.script." in the kOS terminal and follow any prompt. Then, enter the desired altitude for the drone to reach. The number you enter you be in meters and should not contain any letter, otherwise, the script will throw an error.
+3. Select the waypoint you want your drone to reach. If there are no waypoints, an error message will appear on the terminal explaining that at least one waypoint is required to run. Otherwise, the code will not run since the navigation control functionality will not be able to operate.
 4. After the selected waypoint is targeted, the drone will then liftoff, cruise, approach, and land on its own.
 
 ## Script Functionality
